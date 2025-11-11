@@ -33,6 +33,8 @@ function Homepage() {
     setFileMenuIndex(null);
   };
 
+
+  // TODO - upate to read from database/endpoint/service
   const suggestedFiles = [
   {
     name: "Lecture 26 - Stalling, Branch Data Hazards.pdf",
