@@ -16,7 +16,10 @@ export default function LoginPage() {
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const days   = Array.from({ length: 31 }, (_, i) => String(i + 1));
   const years  = Array.from({ length: 120 }, (_, i) => String(new Date().getFullYear() - i));
-  const [gender, setGender] = useState("");
+  months.freeze();
+  days.freeze();
+  years.freeze();
+  //const [gender, setGender] = useState("");
 
 
   const fieldSx={
@@ -144,7 +147,7 @@ export default function LoginPage() {
             },
           }}
         >
-          Forgot email?
+          Forgot Password?
         </Link>
 
 
