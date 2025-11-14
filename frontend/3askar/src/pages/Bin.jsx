@@ -2,63 +2,92 @@ import React from "react";
 import { Box, Typography, IconButton, Menu, MenuItem } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import MenuBar from "../components/MenuBar";
+import { useFiles } from "../context/fileContext.jsx";
+
+const DEFAULT_FILE_ICON =
+  "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
+
+const formatDate = (value) => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleDateString();
+};
+
+const getSortValue = (file, field) => {
+  switch (field) {
+    case "name":
+      return file.name || "";
+    case "owner":
+      return file.owner || "";
+    case "originalLocation":
+      return file.location || "My Drive";
+    case "dateDeleted":
+      return file.deletedAt || file.lastAccessedAt || file.uploadedAt || "";
+    default:
+      return "";
+  }
+};
 
 function Bin() {
-    const allFiles = [ //TODO: original location
-    {
-      id: 1,
-      name: "AI Ethics Assignment.pdf",
-      owner: "professor@aub.edu.lb",
-      dateDeleted: "Nov 7, 2025",
-      isDeleted: true,
-      originalLocation: "My Drive", 
-      icon: "https://www.gstatic.com/images/icons/material/system/2x/picture_as_pdf_black_24dp.png",
-    },
-    {
-      id: 2,
-      name: "Group Project Slides.pptx",
-      owner: "teamleader@gmail.com",
-      dateDeleted: "Jan 9, 2024",
-      isDeleted: false,
-      originalLocation: "My Drive",
-      icon: "https://www.gstatic.com/images/icons/material/system/2x/slideshow_black_24dp.png",
-    },
-    {
-      id: 3,
-      name: "Research Data Sheet.xlsx",
-      owner: "labassistant@aub.edu.lb",
-      dateDeleted: "Nov 18, 2025",
-      isDeleted: false,
-      originalLocation: "Shared with me",
-      icon: "https://www.gstatic.com/images/icons/material/system/2x/grid_on_black_24dp.png",
-    },
-
-    {
-      id: 4,
-      name: "Hello.pdf",
-      owner: "labassistant@aub.edu.lb",
-      dateDeleted: "Oct 5, 2025",
-      isDeleted: true,
-      originalLocation: "My Drive",
-      icon: "https://www.gstatic.com/images/icons/material/system/2x/grid_on_black_24dp.png",
-    },
-  ];
-  
-  const [files, setFiles] = React.useState([]);
-  const [activeFile, setActiveFile] = React.useState(null);
+  const { files, loading, restoreFromBin, deleteForever } = useFiles();
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
+  const [activeFile, setActiveFile] = React.useState(null);
 
-  React.useEffect(()=> {
-    setFiles(allFiles);
-  }, []);
+  const deletedFiles = React.useMemo(
+    () => files.filter((file) => file.isDeleted),
+    [files]
+  );
 
+  const sortedFiles = React.useMemo(() => {
+    const data = [...deletedFiles];
+    data.sort((a, b) => {
+      const valueA = getSortValue(a, sortField);
+      const valueB = getSortValue(b, sortField);
 
-  const deletedFiles = files.filter((file) => file.isDeleted);
+      if (sortField === "dateDeleted") {
+        const timeA = Number(new Date(valueA));
+        const timeB = Number(new Date(valueB));
+        if (sortDirection === "asc") {
+          return (Number.isNaN(timeA) ? 0 : timeA) - (Number.isNaN(timeB) ? 0 : timeB);
+        }
+        return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+      }
 
-  const handleOpenMenu = (event) => setMenuEl(event.currentTarget);
-  const handleCloseMenu = () => setMenuEl(null);
+      const textA = valueA?.toString().toLowerCase() ?? "";
+      const textB = valueB?.toString().toLowerCase() ?? "";
+      if (textA < textB) return sortDirection === "asc" ? -1 : 1;
+      if (textA > textB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    return data;
+  }, [deletedFiles, sortField, sortDirection]);
+
+  const handleOpenMenu = (event, file) => {
+    setMenuEl(event.currentTarget);
+    setActiveFile(file);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuEl(null);
+    setActiveFile(null);
+  };
+
+  const handleRestore = () => {
+    if (activeFile) {
+      restoreFromBin(activeFile.id);
+    }
+    handleCloseMenu();
+  };
+
+  const handleDeleteForever = () => {
+    if (activeFile) {
+      deleteForever(activeFile.id);
+    }
+    handleCloseMenu();
+  };
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -69,30 +98,14 @@ function Bin() {
     }
   };
 
-  const sortData = (data) =>
-    [...data].sort((a, b) => {
-      let fieldA = a[sortField];
-      let fieldB = b[sortField];
-
-      if (sortField === "dateDeleted") {
-        fieldA = new Date(fieldA);
-        fieldB = new Date(fieldB);
-      } else {
-        fieldA = fieldA.toString().toLowerCase();
-        fieldB = fieldB.toString().toLowerCase();
-      }
-
-      if (fieldA < fieldB) return sortDirection === "asc" ? -1 : 1;
-      if (fieldA > fieldB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
-
-  const sortedFiles = sortData(deletedFiles);
-
   const renderSortIndicator = (field) => {
     if (sortField !== field) return "";
-    return sortDirection === "asc" ? " ↑" : " ↓";
+    return sortDirection === "asc" ? " ▲" : " ▼";
   };
+
+  if (loading) {
+    return <Typography sx={{ p: 2 }}>Loading trash...</Typography>;
+  }
 
   return (
     <Box
@@ -111,6 +124,7 @@ function Bin() {
         Trash
       </Typography>
 
+      <MenuBar />
 
       <Box
         sx={{
@@ -130,49 +144,63 @@ function Bin() {
         </Box>
 
         <Box sx={{ flex: 3 }} onClick={() => handleSort("owner")}>
-          Owner {renderSortIndicator("owner")}
+          Owner{renderSortIndicator("owner")}
         </Box>
 
         <Box sx={{ flex: 2 }} onClick={() => handleSort("originalLocation")}>
-          Original location {renderSortIndicator("originalLocation")}
+          Original location{renderSortIndicator("originalLocation")}
         </Box>
         <Box sx={{ flex: 1 }} onClick={() => handleSort("dateDeleted")}>
-          Date deleted {renderSortIndicator("dateDeleted")}
+          Date deleted{renderSortIndicator("dateDeleted")}
         </Box>
 
         <Box sx={{ width: 40 }} />
       </Box>
 
-      {sortedFiles.map((file) => (
-        <Box
-          key={file.id}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            px: 2,
-            py: 1.5,
-            borderBottom: "1px solid #f1f3f4",
-            "&:hover": { backgroundColor: "#f8f9fa" },
-          }}
-        >
-          <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+      {!sortedFiles.length ? (
+        <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+          Bin is empty.
+        </Typography>
+      ) : (
+        sortedFiles.map((file) => (
+          <Box
+            key={file.id}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              px: 2,
+              py: 1.5,
+              borderBottom: "1px solid #f1f3f4",
+              "&:hover": { backgroundColor: "#f8f9fa" },
+            }}
+          >
+            <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+              <img
+                src={file.icon || DEFAULT_FILE_ICON}
+                width={20}
+                height={20}
+                alt="file icon"
+              />
+              {file.name}
+            </Box>
+            <Box sx={{ flex: 3, color: "#5f6368" }}>{file.owner || "Unknown"}</Box>
+            <Box sx={{ flex: 2, color: "#5f6368" }}>
+              {file.location || "My Drive"}
+            </Box>
+            <Box sx={{ flex: 1, color: "#5f6368" }}>
+              {formatDate(file.deletedAt || file.lastAccessedAt || file.uploadedAt)}
+            </Box>
 
-            <img src={file.icon} width={20} height={20} alt="file icon" />
-            {file.name}
+            <IconButton onClick={(event) => handleOpenMenu(event, file)}>
+              <MoreVertIcon sx={{ color: "#5f6368" }} />
+            </IconButton>
           </Box>
-          <Box sx={{ flex: 3, color: "#5f6368" }}>{file.originalLocation}</Box>
-          <Box sx={{ flex: 2, color: "#5f6368" }}>{file.owner}</Box>
-          <Box sx={{ flex: 1, color: "#5f6368" }}>{file.dateDeleted}</Box>
-
-          <IconButton onClick={handleOpenMenu}>
-            <MoreVertIcon sx={{ color: "#5f6368" }} />
-          </IconButton>
-        </Box>
-      ))}
+        ))
+      )}
 
       <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={handleCloseMenu}>
-        <MenuItem onClick={handleCloseMenu}>Restore</MenuItem>
-        <MenuItem onClick={handleCloseMenu}>Delete forever</MenuItem>
+        <MenuItem onClick={handleRestore}>Restore</MenuItem>
+        <MenuItem onClick={handleDeleteForever}>Delete forever</MenuItem>
       </Menu>
     </Box>
   );

@@ -1,45 +1,85 @@
 import React from "react";
 import { Box, Typography, IconButton, Menu, MenuItem } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import MenuBar from "../components/MenuBar";
 import StarIcon from "@mui/icons-material/Star";
+import MenuBar from "../components/MenuBar";
+import { useFiles } from "../context/fileContext.jsx";
+
+const DEFAULT_FILE_ICON =
+  "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
+
+const formatDate = (value) => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleDateString();
+};
+
+const getSortValue = (file, field) => {
+  switch (field) {
+    case "name":
+      return file.name || "";
+    case "sharedBy":
+      return file.owner || "";
+    case "date":
+      return file.lastAccessedAt || file.uploadedAt || "";
+    default:
+      return "";
+  }
+};
 
 function Starred() {
+  const { files, loading, toggleStar } = useFiles();
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
+  const [activeFile, setActiveFile] = React.useState(null);
 
-  const allFiles = [
-    {
-      id: 1,
-      name: "AI Ethics Assignment.pdf",
-      sharedBy: "professor@aub.edu.lb",
-      date: "Nov 5, 2025",
-      isStarred: true,
-      icon: "https://www.gstatic.com/images/icons/material/system/2x/picture_as_pdf_black_24dp.png",
-    },
-    {
-      id: 2,
-      name: "Group Project Slides.pptx",
-      sharedBy: "teamleader@gmail.com",
-      date: "Jan 24, 2023",
-      isStarred: false,
-      icon: "https://www.gstatic.com/images/icons/material/system/2x/slideshow_black_24dp.png",
-    },
-    {
-      id: 3,
-      name: "Research Data Sheet.xlsx",
-      sharedBy: "labassistant@aub.edu.lb",
-      date: "Oct 5, 2025",
-      isStarred: true,
-      icon: "https://www.gstatic.com/images/icons/material/system/2x/grid_on_black_24dp.png",
-    },
-  ];
+  const starredFiles = React.useMemo(
+    () => files.filter((file) => file.isStarred && !file.isDeleted),
+    [files]
+  );
 
-  const starredFiles = allFiles.filter((file) => file.isStarred);
+  const sortedFiles = React.useMemo(() => {
+    const data = [...starredFiles];
+    data.sort((a, b) => {
+      const valueA = getSortValue(a, sortField);
+      const valueB = getSortValue(b, sortField);
 
-  const handleOpenMenu = (event) => setMenuEl(event.currentTarget);
-  const handleCloseMenu = () => setMenuEl(null);
+      if (sortField === "date") {
+        const timeA = Number(new Date(valueA));
+        const timeB = Number(new Date(valueB));
+        if (sortDirection === "asc") {
+          return (Number.isNaN(timeA) ? 0 : timeA) - (Number.isNaN(timeB) ? 0 : timeB);
+        }
+        return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+      }
+
+      const textA = valueA?.toString().toLowerCase() ?? "";
+      const textB = valueB?.toString().toLowerCase() ?? "";
+      if (textA < textB) return sortDirection === "asc" ? -1 : 1;
+      if (textA > textB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    return data;
+  }, [starredFiles, sortField, sortDirection]);
+
+  const handleOpenMenu = (event, file) => {
+    setMenuEl(event.currentTarget);
+    setActiveFile(file);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuEl(null);
+    setActiveFile(null);
+  };
+
+  const handleRemoveFromStarred = () => {
+    if (activeFile) {
+      toggleStar(activeFile.id);
+    }
+    handleCloseMenu();
+  };
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -50,30 +90,14 @@ function Starred() {
     }
   };
 
-  const sortData = (data) =>
-    [...data].sort((a, b) => {
-      let fieldA = a[sortField];
-      let fieldB = b[sortField];
-
-      if (sortField === "date") {
-        fieldA = new Date(fieldA);
-        fieldB = new Date(fieldB);
-      } else {
-        fieldA = fieldA.toString().toLowerCase();
-        fieldB = fieldB.toString().toLowerCase();
-      }
-
-      if (fieldA < fieldB) return sortDirection === "asc" ? -1 : 1;
-      if (fieldA > fieldB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
-
-  const sortedFiles = sortData(starredFiles);
-
   const renderSortIndicator = (field) => {
     if (sortField !== field) return "";
-    return sortDirection === "asc" ? " ↑" : " ↓";
+    return sortDirection === "asc" ? " ▲" : " ▼";
   };
+
+  if (loading) {
+    return <Typography sx={{ p: 2 }}>Loading starred files...</Typography>;
+  }
 
   return (
     <Box
@@ -112,47 +136,59 @@ function Starred() {
         </Box>
 
         <Box sx={{ flex: 3 }} onClick={() => handleSort("sharedBy")}>
-          Shared by{renderSortIndicator("sharedBy")}
+          Owner{renderSortIndicator("sharedBy")}
         </Box>
 
         <Box sx={{ flex: 2 }} onClick={() => handleSort("date")}>
-          Date shared{renderSortIndicator("date")}
+          Last opened{renderSortIndicator("date")}
         </Box>
 
         <Box sx={{ width: 40 }} />
       </Box>
 
-      {sortedFiles.map((file) => (
-        <Box
-          key={file.id}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            px: 2,
-            py: 1.5,
-            borderBottom: "1px solid #f1f3f4",
-            "&:hover": { backgroundColor: "#f8f9fa" },
-          }}
-        >
-          <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
-            {file.isStarred && <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />}
+      {!sortedFiles.length ? (
+        <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+          You have not starred any files yet.
+        </Typography>
+      ) : (
+        sortedFiles.map((file) => (
+          <Box
+            key={file.id}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              px: 2,
+              py: 1.5,
+              borderBottom: "1px solid #f1f3f4",
+              "&:hover": { backgroundColor: "#f8f9fa" },
+            }}
+          >
+            <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+              {file.isStarred && <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />}
+              <img
+                src={file.icon || DEFAULT_FILE_ICON}
+                width={20}
+                height={20}
+                alt="file icon"
+              />
+              {file.name}
+            </Box>
 
-            <img src={file.icon} width={20} height={20} alt="file icon" />
-            {file.name}
+            <Box sx={{ flex: 3, color: "#5f6368" }}>{file.owner || "Unknown"}</Box>
+            <Box sx={{ flex: 2, color: "#5f6368" }}>
+              {formatDate(file.lastAccessedAt || file.uploadedAt)}
+            </Box>
+
+            <IconButton onClick={(event) => handleOpenMenu(event, file)}>
+              <MoreVertIcon sx={{ color: "#5f6368" }} />
+            </IconButton>
           </Box>
-
-          <Box sx={{ flex: 3, color: "#5f6368" }}>{file.sharedBy}</Box>
-          <Box sx={{ flex: 2, color: "#5f6368" }}>{file.date}</Box>
-
-          <IconButton onClick={handleOpenMenu}>
-            <MoreVertIcon sx={{ color: "#5f6368" }} />
-          </IconButton>
-        </Box>
-      ))}
+        ))
+      )}
 
       <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={handleCloseMenu}>
         <MenuItem onClick={handleCloseMenu}>Open</MenuItem>
-        <MenuItem onClick={handleCloseMenu}>Remove from Starred</MenuItem>
+        <MenuItem onClick={handleRemoveFromStarred}>Remove from Starred</MenuItem>
       </Menu>
     </Box>
   );
