@@ -10,6 +10,7 @@ import MenuItem from "@mui/material/MenuItem";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import MenuBar from "./MenuBar";
+import { getFolders } from "../api/foldersApi";
 
 
 
@@ -20,6 +21,9 @@ function Homepage() {
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
   const [viewMode, setViewMode] = React.useState("list");
+
+  //which folder are we currently viewing? null = My Drive root
+  const [currentFolderId, setCurrentFolderId] = React.useState(null);
 
   // File action menu (for list and grid items)
   const [fileMenuAnchor, setFileMenuAnchor] = React.useState(null);
@@ -33,6 +37,36 @@ function Homepage() {
   const handleFileMenuClose = () => {
     setFileMenuAnchor(null);
     setFileMenuIndex(null);
+  };
+
+  const [rootFolders, setRootFolders] = React.useState([]);
+  const [foldersLoading, setFoldersLoading] = React.useState(true);
+  const [foldersError, setFoldersError] = React.useState(null);
+
+    React.useEffect(() => { //fetch whevern current folder Id changes
+  async function loadFolders() { //not only root
+    try {
+      setFoldersLoading(true);
+      setFoldersError(null);
+
+      // currentFolderId:
+      //   null → root "My Drive"
+      //   "abc123" → children of that folder
+      const folders = await getFolders(currentFolderId);
+      setRootFolders(folders);
+    } catch (err) {
+      console.error("Failed to load folders", err);
+      setFoldersError(err.message || "Failed to load folders");
+    } finally {
+      setFoldersLoading(false);
+    }
+  }
+
+  loadFolders();
+}, [currentFolderId]); // <-- runs again whenever currentFolderId changes
+
+  const handleFolderOpen = (folderId) => {
+    setCurrentFolderId(folderId);
   };
 
 
@@ -72,6 +106,22 @@ function Homepage() {
         Welcome to Drive
       </Typography>
 
+      {currentFolderId !== null && (    //to go back up after going in folder
+        <Typography
+          variant="body2"
+          sx={{
+            mb: 2,
+            color: "#1a73e8",
+            cursor: "pointer",
+            textDecoration: "underline",
+            width: "fit-content",
+          }}
+          onClick={() => setCurrentFolderId(null)}
+        >
+          ← Back to My Drive
+        </Typography>
+      )}
+
       {/* MENU BAR obviously */}
       <MenuBar/>
 
@@ -110,51 +160,86 @@ function Homepage() {
           </Typography>
         </AccordionSummary>
 
+        
         <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
           <Grid container spacing={2}>
-            {[1, 2].map((item) => (
-              <Grid item xs={12} sm={6} md={4} key={item}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    p: 2,
-                    border: "1px solid #e0e0e0",
-                    borderRadius: 3,
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
-                      transform: "translateY(-2px)",
-                    },
-                    height: "25%",
-                  }}
-                >
-                  <FolderIcon sx={{ fontSize: 36, color: "#4285f4" }} />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography sx={{ fontWeight: 600 }}>
-                      Folder {item}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: "#5f6368" }}>
-                      In Shared with me
-                    </Typography>
-                  </Box>
-                  <IconButton size="small" onClick={handleClick}>
-                    <MoreVertIcon sx={{ color: "#5f6368" }} />
-                  </IconButton>
-                  <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-                    <MenuItem onClick={handleClose}>Open</MenuItem>
-                    <MenuItem onClick={handleClose}>Share</MenuItem>
-                    <MenuItem onClick={handleClose}>Remove</MenuItem>
-                  </Menu>
-                </Paper>
+            {/* Loading */}
+            {foldersLoading && (
+              <Grid item xs={12}>
+                <Typography sx={{ color: "#5f6368", px: 1 }}>
+                  Loading folders...
+                </Typography>
               </Grid>
-            ))}
+            )}
+
+            {/* Error */}
+            {foldersError && !foldersLoading && (
+              <Grid item xs={12}>
+                <Typography sx={{ color: "red", px: 1 }}>
+                  {foldersError}
+                </Typography>
+              </Grid>
+            )}
+
+            {/* Empty */}
+            {!foldersLoading && !foldersError && rootFolders.length === 0 && (
+              <Grid item xs={12}>
+                <Typography sx={{ color: "#5f6368", px: 1 }}>
+                  No folders in My Drive yet.
+                </Typography>
+              </Grid>
+            )}
+
+            {/* Actual folders from backend */}
+            {!foldersLoading &&
+              !foldersError &&
+              rootFolders.map((folder) => (       //loops through all folders and raws a card for each
+                <Grid item xs={12} sm={6} md={4} key={folder._id}>
+                  <Paper
+                    elevation={0}
+                    onClick={() => handleFolderOpen(folder._id)}  //this funct sets current folder ID then get folders is called in backend  and it returns children of that folder 
+                    sx={{                                         //and lastly setRoot updates the list to show subfolders inside the one:   Full folder navigation
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                      p: 2,
+                      border: "1px solid #e0e0e0",
+                      borderRadius: 3,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                        transform: "translateY(-2px)",
+                      },
+                      height: "25%",
+                    }}
+                  >
+                    <FolderIcon sx={{ fontSize: 36, color: "#4285f4" }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography sx={{ fontWeight: 600 }}>
+                        {folder.name}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: "#5f6368" }}>    {/*displays where folder belongs*/}
+                        {folder.location === "TRASH"
+                          ? "In Trash"
+                          : folder.location === "SHARED"
+                          ? "In Shared with me"
+                          : "In My Drive"}
+                      </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={handleClick}>
+                      <MoreVertIcon sx={{ color: "#5f6368" }} />
+                    </IconButton>
+                    <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
+                      <MenuItem onClick={handleClose}>Open</MenuItem>
+                      <MenuItem onClick={handleClose}>Share</MenuItem>
+                      <MenuItem onClick={handleClose}>Remove</MenuItem>
+                    </Menu>
+                  </Paper>
+                </Grid>
+              ))}
           </Grid>
         </AccordionDetails>
-
       </Accordion>
 
       <Accordion

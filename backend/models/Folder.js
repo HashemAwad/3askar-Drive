@@ -67,9 +67,3 @@ const folderSchema = new Schema({
 
 module.exports = mongoose.model("Folder", folderSchema);
 
-
-
-   
-      
-  
-   
