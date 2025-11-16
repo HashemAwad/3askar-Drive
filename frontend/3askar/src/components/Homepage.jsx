@@ -14,6 +14,10 @@ import { useFiles } from "../context/fileContext.jsx";
 
 function Homepage() {
   const{ files, loading } = useFiles();
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const [viewMode, setViewMode] = React.useState("list");
+  const [fileMenuAnchor, setFileMenuAnchor] = React.useState(null);
+  const [fileMenuIndex, setFileMenuIndex] = React.useState(null);
 
   if (loading) {
     return (
@@ -26,15 +30,11 @@ function Homepage() {
   .sort((a, b) => new Date(b.lastAccessedAt) - new Date(a.lastAccessedAt))
   .slice(0, 20); // Get top 5 recent files
 
-  const [anchorEl, setAnchorEl] = React.useState(null);
+  
   const open = Boolean(anchorEl);
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
-  const [viewMode, setViewMode] = React.useState("list");
 
-  // File action menu (for list and grid items)
-  const [fileMenuAnchor, setFileMenuAnchor] = React.useState(null);
-  const [fileMenuIndex, setFileMenuIndex] = React.useState(null);
   const fileMenuOpen = Boolean(fileMenuAnchor);
   const handleFileMenuOpen = (event, index) => {
     event.stopPropagation?.();

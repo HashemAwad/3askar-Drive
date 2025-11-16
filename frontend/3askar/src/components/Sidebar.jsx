@@ -113,7 +113,7 @@ const Sidebar = () => {
 
 
     const sideItems = [
-        {id:"home", label: "Home", path: "/home", icon: <HomeOutlinedIcon/>, activeIcon: <HomeFilledIcon color="primary" />}, 
+        {id:"home", label: "Home", path: "/", icon: <HomeOutlinedIcon/>, activeIcon: <HomeFilledIcon color="primary" />}, 
         {id:"drive", label: "My Drive", path:"/mydrive", icon: <DriveFileMoveOutlinedIcon />, activeIcon: <DriveFileMoveOutlinedIcon color="primary" />}, 
         {id:"shared", label: "Shared with me", path:"/shared", icon: <PeopleAltOutlinedIcon />, activeIcon: <PeopleAltIcon color="primary" />}, 
         {id:"starred", label: "Starred", path:"/starred",icon: <StarBorderOutlinedIcon />, activeIcon: <StarIcon color="primary" />}, 
