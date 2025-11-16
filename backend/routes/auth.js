@@ -178,18 +178,12 @@ router.post('/forgot-password', async (req, res) => {
       console.error("Error sending reset email:", emailErr);
       return res.status(500).send("Error sending reset email");
     }
-
+    //TODO CLEAN IT UP LATER
     return res.status(200).json({
       message: 'IF an account with that email exists, a reset link has been sent',
       resetLink
     });
 
-
-    //For dev: return the link as well, so you can copy it
-    return res.status(200).json({
-      message: 'IF an account with that email exists, a reset link has been sent',
-      resetLink
-    });
   } catch (error) {
     return res.status(500).send('Error during password reset request');
   }
