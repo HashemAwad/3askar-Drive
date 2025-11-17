@@ -5,12 +5,11 @@ import FolderIcon from "@mui/icons-material/Folder";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import IconButton from "@mui/material/IconButton";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import MenuBar from "./MenuBar";
 import { useFiles } from "../context/fileContext.jsx";
+import FileKebabMenu from "./FileKebabMenu"; // <-- ONLY NEW IMPORT ADDED
 
 function Homepage() {
   const{ files, loading } = useFiles();
@@ -24,28 +23,43 @@ function Homepage() {
   const recentFiles = [...files]
   .filter((file) => !file.isDeleted)
   .sort((a, b) => new Date(b.lastAccessedAt) - new Date(a.lastAccessedAt))
-  .slice(0, 20); // Get top 5 recent files
+  .slice(0, 20);
 
-  const [anchorEl, setAnchorEl] = React.useState(null);
-  const open = Boolean(anchorEl);
-  const handleClick = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = () => setAnchorEl(null);
   const [viewMode, setViewMode] = React.useState("list");
 
-  // File action menu (for list and grid items)
-  const [fileMenuAnchor, setFileMenuAnchor] = React.useState(null);
-  const [fileMenuIndex, setFileMenuIndex] = React.useState(null);
-  const fileMenuOpen = Boolean(fileMenuAnchor);
-  const handleFileMenuOpen = (event, index) => {
+  const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
+  const [menuPosition, setMenuPosition] = React.useState(null);
+  const [selectedItem, setSelectedItem] = React.useState(null);
+
+  const menuOpen = Boolean(menuAnchorEl) || Boolean(menuPosition);
+
+  const anchorPosition = menuPosition
+    ? { top: menuPosition.mouseY, left: menuPosition.mouseX }
+    : undefined;
+
+  const handleMenuButtonClick = (event, item) => {
     event.stopPropagation?.();
-    setFileMenuAnchor(event.currentTarget);
-    setFileMenuIndex(index);
-  };
-  const handleFileMenuClose = () => {
-    setFileMenuAnchor(null);
-    setFileMenuIndex(null);
+    setSelectedItem(item);
+    setMenuPosition(null);
+    setMenuAnchorEl(event.currentTarget);
   };
 
+  const handleContextMenu = (event, item) => {
+    event.preventDefault();
+    event.stopPropagation?.();
+    setSelectedItem(item);
+    setMenuAnchorEl(null);
+    setMenuPosition({
+      mouseX: event.clientX + 2,
+      mouseY: event.clientY - 6,
+    });
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+    setMenuPosition(null);
+    setSelectedItem(null);
+  };
 
   // TODO - upate to read from database/endpoint/service
   const suggestedFiles = [
@@ -65,7 +79,6 @@ function Homepage() {
   },
 ];
 
-
   return (
     <Box
       sx={{
@@ -83,7 +96,6 @@ function Homepage() {
         Welcome to Drive
       </Typography>
 
-      {/* MENU BAR obviously */}
       <MenuBar/>
 
       <Accordion
@@ -127,6 +139,7 @@ function Homepage() {
               <Grid item xs={12} sm={6} md={4} key={item}>
                 <Paper
                   elevation={0}
+                  onContextMenu={(e) => handleContextMenu(e, item)}
                   sx={{
                     display: "flex",
                     alignItems: "center",
@@ -152,14 +165,12 @@ function Homepage() {
                       In Shared with me
                     </Typography>
                   </Box>
-                  <IconButton size="small" onClick={handleClick}>
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => handleMenuButtonClick(e, item)}
+                  >
                     <MoreVertIcon sx={{ color: "#5f6368" }} />
                   </IconButton>
-                  <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-                    <MenuItem onClick={handleClose}>Open</MenuItem>
-                    <MenuItem onClick={handleClose}>Share</MenuItem>
-                    <MenuItem onClick={handleClose}>Remove</MenuItem>
-                  </Menu>
                 </Paper>
               </Grid>
             ))}
@@ -205,7 +216,6 @@ function Homepage() {
         </AccordionSummary>
 
         <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
-          {/* View mode toggle shown on the right INSIDE details */}
           <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
             <IconButton
               size="small"
@@ -227,7 +237,6 @@ function Homepage() {
 
           {viewMode === "list" ? (
             <>
-              {/* Header row */}
               <Box
                 sx={{
                   display: "flex",
@@ -248,10 +257,10 @@ function Homepage() {
                 <Box sx={{ width: 40 }}></Box>
               </Box>
 
-              {/* File rows */}
               {suggestedFiles.map((file, index) => (
                 <Box
                   key={index}
+                  onContextMenu={(e) => handleContextMenu(e, file)}
                   sx={{
                     display: "flex",
                     alignItems: "center",
@@ -265,7 +274,6 @@ function Homepage() {
                     },
                   }}
                 >
-                  {/* Name + icon */}
                   <Box sx={{ display: "flex", alignItems: "center", flex: 3, gap: 1.5 }}>
                     <img src={file.icon} alt="" width={20} height={20} />
                     <Typography sx={{ fontWeight: 500, color: "#202124" }}>
@@ -273,29 +281,30 @@ function Homepage() {
                     </Typography>
                   </Box>
 
-                  {/* Reason */}
                   <Box sx={{ flex: 2 }}>
                     <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
                       {file.reason}
                     </Typography>
                   </Box>
 
-                  {/* Owner */}
                   <Box sx={{ flex: 2 }}>
                     <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
                       {file.owner}
                     </Typography>
                   </Box>
 
-                  {/* Location */}
                   <Box sx={{ flex: 2 }}>
                     <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
                       {file.location}
                     </Typography>
                   </Box>
-                  {/* Actions */}
+
                   <Box sx={{ display: "flex", alignItems: "center", width: 40, justifyContent: "flex-end" }}>
-                    <IconButton size="small" onClick={(e) => handleFileMenuOpen(e, index)} aria-label="More actions">
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => handleMenuButtonClick(e, file)}
+                      aria-label="More actions"
+                    >
                       <MoreVertIcon sx={{ color: "#5f6368" }} />
                     </IconButton>
                   </Box>
@@ -304,12 +313,12 @@ function Homepage() {
 
             </>
           ) : (
-            /* ---------- GRID VIEW ---------- */
           <Grid container spacing={2} sx={{ px: 2, py: 1 }}>
             {suggestedFiles.map((file, index) => (
               <Grid item xs={12} sm={6} md={3} lg={2} key={index}>
                 <Paper
                   elevation={0}
+                  onContextMenu={(e) => handleContextMenu(e, file)}
                   sx={{
                     position: "relative",
                     border: "1px solid #e0e0e0",
@@ -323,11 +332,15 @@ function Homepage() {
                     },
                   }}
                 >
-                  {/* Actions (top-right) */}
-                  <IconButton size="small" sx={{ position: "absolute", top: 4, right: 4 }} onClick={(e) => handleFileMenuOpen(e, index)} aria-label="More actions">
+                  <IconButton 
+                    size="small" 
+                    sx={{ position: "absolute", top: 4, right: 4 }} 
+                    onClick={(e) => handleMenuButtonClick(e, file)}
+                    aria-label="More actions"
+                  >
                     <MoreVertIcon sx={{ color: "#5f6368" }} />
                   </IconButton>
-                  {/* Thumbnail / icon */}
+
                   <Box
                     sx={{
                       display: "flex",
@@ -340,7 +353,6 @@ function Homepage() {
                     <img src={file.icon} alt="file icon" width={40} height={40} />
                   </Box>
 
-                  {/* Text info */}
                   <Box sx={{ p: 1.5 }}>
                     <Typography
                       sx={{
@@ -374,15 +386,16 @@ function Homepage() {
           </Grid>
           )}
 
-          {/* Shared menu for file actions */}
-          <Menu anchorEl={fileMenuAnchor} open={fileMenuOpen} onClose={handleFileMenuClose}>
-            <MenuItem onClick={handleFileMenuClose}>Open</MenuItem>
-            <MenuItem onClick={handleFileMenuClose}>Share</MenuItem>
-            <MenuItem onClick={handleFileMenuClose}>Remove</MenuItem>
-          </Menu>
         </AccordionDetails>
       </Accordion>
-
+  
+      <FileKebabMenu
+        anchorEl={menuAnchorEl}
+        anchorPosition={anchorPosition}
+        open={menuOpen}
+        onClose={handleMenuClose}
+        selectedItem={selectedItem}
+      />
     </Box>
   );
 }
