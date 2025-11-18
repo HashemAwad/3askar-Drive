@@ -1,20 +1,45 @@
 import React from "react";
 import { Box, Typography, IconButton, Menu, MenuItem } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import MenuBar from "../components/MenuBar";
 import StarIcon from "@mui/icons-material/Star";
+import MenuBar from "../components/MenuBar";
 import { useFiles } from "../context/fileContext.jsx";
 
+const formatDate = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString();
+};
+
 function Starred() {
+  const { filteredFiles, filterBySource, loading, error } = useFiles();
+
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
 
-  const { filteredFiles, filterBySource } = useFiles();
   const starredFiles = React.useMemo(
     () => filterBySource(filteredFiles, "starred"),
     [filteredFiles, filterBySource]
   );
+
+  const sortedFiles = React.useMemo(() => {
+    return [...starredFiles].sort((a, b) => {
+      const valueA =
+        sortField === "date"
+          ? Number(new Date(a.lastAccessedAt || a.uploadedAt || a.date))
+          : (a[sortField] ?? "").toString().toLowerCase();
+
+      const valueB =
+        sortField === "date"
+          ? Number(new Date(b.lastAccessedAt || b.uploadedAt || b.date))
+          : (b[sortField] ?? "").toString().toLowerCase();
+
+      if (sortDirection === "asc") return valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
+      return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
+    });
+  }, [starredFiles, sortField, sortDirection]);
 
   const handleOpenMenu = (event) => setMenuEl(event.currentTarget);
   const handleCloseMenu = () => setMenuEl(null);
@@ -28,35 +53,22 @@ function Starred() {
     }
   };
 
-  const sortData = (data) =>
-    [...data].sort((a, b) => {
-      const resolveValue = (file) => {
-        switch (sortField) {
-          case "sharedBy":
-            return (file.owner || "").toString().toLowerCase();
-          case "date":
-            return Number(
-              new Date(file.lastAccessedAt || file.uploadedAt || file.date)
-            );
-          default:
-            return (file.name || "").toString().toLowerCase();
-        }
-      };
-
-      const valueA = resolveValue(a);
-      const valueB = resolveValue(b);
-
-      if (valueA < valueB) return sortDirection === "asc" ? -1 : 1;
-      if (valueA > valueB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
-
-  const sortedFiles = sortData(starredFiles);
-
   const renderSortIndicator = (field) => {
     if (sortField !== field) return "";
     return sortDirection === "asc" ? " ↑" : " ↓";
   };
+
+  if (loading) {
+    return <Typography sx={{ p: 2 }}>Loading starred items...</Typography>;
+  }
+
+  if (error) {
+    return (
+      <Typography sx={{ p: 2, color: "#d93025" }}>
+        {error}
+      </Typography>
+    );
+  }
 
   return (
     <Box
@@ -94,12 +106,12 @@ function Starred() {
           Name{renderSortIndicator("name")}
         </Box>
 
-        <Box sx={{ flex: 3 }} onClick={() => handleSort("sharedBy")}>
-          Shared by{renderSortIndicator("sharedBy")}
+        <Box sx={{ flex: 3 }} onClick={() => handleSort("owner")}>
+          Owner{renderSortIndicator("owner")}
         </Box>
 
         <Box sx={{ flex: 2 }} onClick={() => handleSort("date")}>
-          Date shared{renderSortIndicator("date")}
+          Date starred{renderSortIndicator("date")}
         </Box>
 
         <Box sx={{ width: 40 }} />
@@ -118,17 +130,17 @@ function Starred() {
           }}
         >
           <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
-            {file.isStarred && <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />}
-
+            <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />
             <img src={file.icon} width={20} height={20} alt="file icon" />
             {file.name}
           </Box>
 
-          <Box sx={{ flex: 3, color: "#5f6368" }}>{file.owner || "Unknown"}</Box>
+          <Box sx={{ flex: 3, color: "#5f6368" }}>
+            {file.owner || "Unknown"}
+          </Box>
+
           <Box sx={{ flex: 2, color: "#5f6368" }}>
-            {file.lastAccessedAt || file.uploadedAt
-              ? new Date(file.lastAccessedAt || file.uploadedAt).toLocaleDateString()
-              : "—"}
+            {formatDate(file.lastAccessedAt || file.uploadedAt)}
           </Box>
 
           <IconButton onClick={handleOpenMenu}>

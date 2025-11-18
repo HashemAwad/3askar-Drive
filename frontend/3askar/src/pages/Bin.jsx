@@ -30,8 +30,15 @@ const getSortValue = (file, field) => {
 };
 
 function Bin() {
-  const { filteredFiles, loading, restoreFromBin, deleteForever, filterBySource } =
-    useFiles();
+  const {
+    filteredFiles,
+    loading,
+    error,
+    restoreFromBin,
+    deleteForever,
+    filterBySource,
+  } = useFiles();
+
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
@@ -44,6 +51,7 @@ function Bin() {
 
   const sortedFiles = React.useMemo(() => {
     const data = [...deletedFiles];
+
     data.sort((a, b) => {
       const valueA = getSortValue(a, sortField);
       const valueB = getSortValue(b, sortField);
@@ -51,6 +59,7 @@ function Bin() {
       if (sortField === "dateDeleted") {
         const timeA = Number(new Date(valueA));
         const timeB = Number(new Date(valueB));
+
         if (sortDirection === "asc") {
           return (Number.isNaN(timeA) ? 0 : timeA) - (Number.isNaN(timeB) ? 0 : timeB);
         }
@@ -59,10 +68,12 @@ function Bin() {
 
       const textA = valueA?.toString().toLowerCase() ?? "";
       const textB = valueB?.toString().toLowerCase() ?? "";
+
       if (textA < textB) return sortDirection === "asc" ? -1 : 1;
       if (textA > textB) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
+
     return data;
   }, [deletedFiles, sortField, sortDirection]);
 
@@ -101,11 +112,19 @@ function Bin() {
 
   const renderSortIndicator = (field) => {
     if (sortField !== field) return "";
-    return sortDirection === "asc" ? " ▲" : " ▼";
+    return sortDirection === "asc" ? " ↑" : " ↓";
   };
 
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading trash...</Typography>;
+  }
+
+  if (error) {
+    return (
+      <Typography sx={{ p: 2, color: "#d93025" }}>
+        {error}
+      </Typography>
+    );
   }
 
   return (
@@ -151,6 +170,7 @@ function Bin() {
         <Box sx={{ flex: 2 }} onClick={() => handleSort("originalLocation")}>
           Original location{renderSortIndicator("originalLocation")}
         </Box>
+
         <Box sx={{ flex: 1 }} onClick={() => handleSort("dateDeleted")}>
           Date deleted{renderSortIndicator("dateDeleted")}
         </Box>
@@ -175,7 +195,14 @@ function Bin() {
               "&:hover": { backgroundColor: "#f8f9fa" },
             }}
           >
-            <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box
+              sx={{
+                flex: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+              }}
+            >
               <img
                 src={file.icon || DEFAULT_FILE_ICON}
                 width={20}
@@ -184,12 +211,19 @@ function Bin() {
               />
               {file.name}
             </Box>
-            <Box sx={{ flex: 3, color: "#5f6368" }}>{file.owner || "Unknown"}</Box>
+
+            <Box sx={{ flex: 3, color: "#5f6368" }}>
+              {file.owner || "Unknown"}
+            </Box>
+
             <Box sx={{ flex: 2, color: "#5f6368" }}>
               {file.location || "My Drive"}
             </Box>
+
             <Box sx={{ flex: 1, color: "#5f6368" }}>
-              {formatDate(file.deletedAt || file.lastAccessedAt || file.uploadedAt)}
+              {formatDate(
+                file.deletedAt || file.lastAccessedAt || file.uploadedAt
+              )}
             </Box>
 
             <IconButton onClick={(event) => handleOpenMenu(event, file)}>
