@@ -172,5 +172,3 @@ export async function copyFolder(folderId, { name, parentFolder } = {}) {
 
   return handleResponse(res);
 }
-
- 
