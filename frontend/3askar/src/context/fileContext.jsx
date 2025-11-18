@@ -47,7 +47,7 @@ const resolveIcon = (filename = "", mime = "") => {
   return match?.icon ?? DEFAULT_FILE_ICON;
 };
 
-const USE_MOCK_DATA = true; //flip to false 
+const USE_MOCK_DATA = false; //flip to false 
 
 const MOCK_FILES = [
   {
@@ -317,14 +317,9 @@ export const FileProvider = ({ children }) => {
 
   const downloadFile = useCallback(
     (file) => {
-      if (!file?.id) return;
+      if (!file?.gridFsId) return;
 
-      if (USE_MOCK_DATA) {
-        window.alert("Downloads are unavailable in mock mode.");
-        return;
-      }
-
-      const url = `${API_BASE_URL}/files/${file.id}/download`;
+      const url = `${API_BASE_URL}/files/${file.gridFsId}/download`;
       window.open(url, "_blank", "noopener,noreferrer");
     },
     []

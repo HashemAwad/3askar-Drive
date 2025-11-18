@@ -17,12 +17,13 @@ function FileKebabMenu({
   open,
   onClose,
   selectedFile,
+  onStartRename,
+  onStartShare
 }) {
   const { moveToTrash, toggleStar, renameFile, downloadFile, copyFile } =
     useFiles();
   const anchorReference = anchorPosition ? "anchorPosition" : "anchorEl";
 
-  // Shared styling for all menu items
   const menuItemStyle = {
     display: "flex",
     alignItems: "center",
@@ -33,7 +34,6 @@ function FileKebabMenu({
     },
   };
 
-  
   const iconStyle = { color: "rgba(0,0,0,0.6)" };
 
   const handleDownload = () => {
@@ -44,12 +44,13 @@ function FileKebabMenu({
 
   const handleRename = () => {
     if (!selectedFile) return;
-    const newName = window.prompt("Rename file", selectedFile.name || "");
-    if (!newName || newName.trim() === "" || newName === selectedFile.name) {
-      onClose?.();
-      return;
-    }
-    renameFile(selectedFile.id, newName.trim());
+    onStartRename?.(selectedFile);
+    onClose?.();
+  };
+
+  const handleShare = () => {
+    if (!selectedFile) return;
+    onStartShare?.(selectedFile);
     onClose?.();
   };
 
@@ -98,7 +99,6 @@ function FileKebabMenu({
         },
       }}
     >
-      {/* Download */}
       <MenuItem
         onClick={handleDownload}
         sx={menuItemStyle}
@@ -108,7 +108,6 @@ function FileKebabMenu({
         Download
       </MenuItem>
 
-      {/* Rename */}
       <MenuItem
         onClick={handleRename}
         sx={menuItemStyle}
@@ -130,19 +129,16 @@ function FileKebabMenu({
 
       <Divider sx={{ my: 0.5 }} />
 
-      {/* Share */}
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
+      <MenuItem onClick={handleShare} sx={menuItemStyle}>
         <PersonAddIcon fontSize="small" sx={iconStyle} />
         Share
       </MenuItem>
 
-      {/* Organize (Move...) */}
       <MenuItem onClick={onClose} sx={menuItemStyle}>
         <DriveFileMoveIcon fontSize="small" sx={iconStyle} />
         Organize
       </MenuItem>
 
-      {/* File info */}
       <MenuItem onClick={onClose} sx={menuItemStyle}>
         <InfoIcon fontSize="small" sx={iconStyle} />
         File information
@@ -150,7 +146,6 @@ function FileKebabMenu({
 
       <Divider sx={{ my: 0.5 }} />
 
-      {/* Move to trash */}
       <MenuItem
         onClick={handleTrash}
         sx={menuItemStyle}
@@ -160,7 +155,6 @@ function FileKebabMenu({
         Move to trash
       </MenuItem>
 
-      {/* Star / Unstar (placeholder for now) */}
       <MenuItem
         onClick={handleStarToggle}
         sx={menuItemStyle}
