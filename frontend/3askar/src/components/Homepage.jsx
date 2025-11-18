@@ -9,7 +9,11 @@ import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import MenuBar from "./MenuBar";
 import { useFiles } from "../context/fileContext.jsx";
-import FileKebabMenu from "./FileKebabMenu"; // <-- ONLY NEW IMPORT ADDED
+import FileKebabMenu from "./FileKebabMenu"; 
+import DetailsPanel from "./DetailsPanel";
+import useMediaQuery from "@mui/material/useMediaQuery";
+
+
 
 function Homepage() {
   const{ files, loading, error } = useFiles();
@@ -87,6 +91,16 @@ function Homepage() {
   },
 ];
 
+//for drawer
+const [detailsOpen, setDetailsOpen] = React.useState(false);
+const [selectedFile, setSelectedFile] = React.useState(null);
+
+const handleViewDetails = (file) => {
+  setSelectedFile(file);
+  setDetailsOpen(true);
+};
+
+
   return (
     <Box
       sx={{
@@ -97,8 +111,12 @@ function Homepage() {
         height: "calc(100vh - 64px)",
         overflowY: "auto",
         color: "#000000ff",
-        borderTopLeftRadius: 12, 
-      }}
+        borderTopLeftRadius: 12,
+        marginRight: detailsOpen
+          ? (window.innerWidth < 600 ? "100vw" : "360px")
+          : "0",
+        transition: "margin-right 0.25s ease",
+        }}
     >
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
         Welcome to Drive
@@ -402,8 +420,17 @@ function Homepage() {
         anchorPosition={anchorPosition}
         open={menuOpen}
         onClose={handleMenuClose}
+        selectedItem={selectedItem}
+        onViewDetails={handleViewDetails}
+      />
+
+      <DetailsPanel
+        open={detailsOpen}
+        file={selectedFile}
+        onClose={() => setDetailsOpen(false)}
         selectedFile={selectedFile}
       />
+
     </Box>
   );
 }
