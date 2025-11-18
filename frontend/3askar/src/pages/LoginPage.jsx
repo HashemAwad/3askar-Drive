@@ -14,11 +14,11 @@ import {
   FormHelperText,
   Checkbox,
   FormControlLabel,
-  CircularProgress
+  CircularProgress,
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL;
-import { useNavigate } from "react-router-dom";
 
 const isValueEmpty = (value) => {
   if (typeof value === "string") return value.trim() === "";
@@ -52,7 +52,7 @@ export default function LoginPage() {
   const [showLoginErrors, setShowLoginErrors] = useState(false);
 
   // CREATE STATE
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState("login"); // "login" or "create"
   const [createAlert, setCreateAlert] = useState(null);
   const [showCreateErrors, setShowCreateErrors] = useState(false);
 
@@ -77,7 +77,7 @@ export default function LoginPage() {
     "September",
     "October",
     "November",
-    "December"
+    "December",
   ];
   const days = Array.from({ length: 31 }, (_, i) => String(i + 1));
   const years = Array.from(
@@ -89,7 +89,7 @@ export default function LoginPage() {
   Object.freeze(days);
   Object.freeze(years);
 
-  // FIELD SX
+  // FIELD STYLES
   const fieldSx = {
     mt: 2,
     backgroundColor: "#fff",
@@ -100,14 +100,14 @@ export default function LoginPage() {
       "&.Mui-focused fieldset": { borderColor: "#1a73e8" },
       "&.Mui-error fieldset": { borderColor: "#d32f2f" },
       "&.Mui-error:hover fieldset": { borderColor: "#d32f2f" },
-      "&.Mui-error.Mui-focused fieldset": { borderColor: "#d32f2f" }
+      "&.Mui-error.Mui-focused fieldset": { borderColor: "#d32f2f" },
     },
     "& input:-webkit-autofill": {
       WebkitBoxShadow: "0 0 0 1000px #e8f0fe inset",
       WebkitTextFillColor: "#000",
       caretColor: "#000",
-      transition: "background-color 5000s ease-in-out 0s"
-    }
+      transition: "background-color 5000s ease-in-out 0s",
+    },
   };
 
   const selectSx = {
@@ -116,8 +116,8 @@ export default function LoginPage() {
     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#f6fafe" },
     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#dadce0" },
     "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#1a73e8"
-    }
+      borderColor: "#1a73e8",
+    },
   };
 
   // ERROR HANDLING
@@ -134,8 +134,9 @@ export default function LoginPage() {
   const getCreatePasswordErrorMessage = () => {
     if (!showCreateErrors) return "";
     if (isValueEmpty(password)) return "Required";
-    if (!isStrongPassword(password))
+    if (!isStrongPassword(password)) {
       return "Use 8+ characters with upper, lower, number, and symbol.";
+    }
     return "";
   };
 
@@ -148,27 +149,32 @@ export default function LoginPage() {
     dobDay: showCreateErrors && isValueEmpty(dobDay),
     dobYear: showCreateErrors && isValueEmpty(dobYear),
     email: Boolean(createEmailErrorMessage),
-    password: Boolean(createPasswordErrorMessage)
+    password: Boolean(createPasswordErrorMessage),
   };
 
   const loginFieldErrors = {
     email: Boolean(loginEmailErrorMessage),
-    password: showLoginErrors && isValueEmpty(password)
+    password: showLoginErrors && isValueEmpty(password),
   };
 
   // LOGIN
   const handleLogin = async () => {
     setShowLoginErrors(true);
 
-    const missing = ["Email", "Password"].filter((f, idx) =>
-      isValueEmpty([email, password][idx])
-    );
+    const required = [
+      { label: "Email", value: email },
+      { label: "Password", value: password },
+    ];
 
-    if (missing.length) {
+    const missingFieldsList = required
+      .filter(({ value }) => isValueEmpty(value))
+      .map(({ label }) => label);
+
+    if (missingFieldsList.length) {
       setLoginAlert({
         severity: "warning",
         message: "Please fill in the required fields before signing in.",
-        details: missing
+        details: missingFieldsList,
       });
       return;
     }
@@ -176,7 +182,7 @@ export default function LoginPage() {
     if (!isValidEmail(email)) {
       setLoginAlert({
         severity: "error",
-        message: "Please enter a valid email address."
+        message: "Please enter a valid email address.",
       });
       return;
     }
@@ -188,34 +194,37 @@ export default function LoginPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ email, password, rememberMe })
+      body: JSON.stringify({ email, password, rememberMe }),
     });
 
     const msg = await res.text();
     console.log(msg);
   };
 
-  // CREATE
+  // CREATE ACCOUNT
   const handleCreateAccount = async () => {
     setShowCreateErrors(true);
 
-    const required = [
-      ["First name", firstName],
-      ["Last name", lastName],
-      ["Birth month", dobMonth],
-      ["Birth day", dobDay],
-      ["Birth year", dobYear],
-      ["Email", email],
-      ["Password", password]
+    const requiredFields = [
+      { label: "First name", value: firstName },
+      { label: "Last name", value: lastName },
+      { label: "Birth month", value: dobMonth },
+      { label: "Birth day", value: dobDay },
+      { label: "Birth year", value: dobYear },
+      { label: "Email", value: email },
+      { label: "Password", value: password },
     ];
 
-    const missing = required.filter(([_, v]) => isValueEmpty(v)).map(([l]) => l);
+    const missingFieldsList = requiredFields
+      .filter(({ value }) => isValueEmpty(value))
+      .map(({ label }) => label);
 
-    if (missing.length) {
+    if (missingFieldsList.length) {
       setCreateAlert({
         severity: "warning",
-        message: "Please fill in the required fields before creating an account.",
-        details: missing
+        message:
+          "Please fill in the required fields before creating an account.",
+        details: missingFieldsList,
       });
       return;
     }
@@ -224,7 +233,7 @@ export default function LoginPage() {
       setCreateAlert({
         severity: "error",
         message:
-          "Password must include upper/lower case letters, a number, a symbol, and be at least 8 characters."
+          "Password must include upper/lower case letters, a number, a symbol, and be at least 8 characters.",
       });
       return;
     }
@@ -232,7 +241,7 @@ export default function LoginPage() {
     if (!isValidEmail(email)) {
       setCreateAlert({
         severity: "error",
-        message: "Please enter a valid email address."
+        message: "Please enter a valid email address.",
       });
       return;
     }
@@ -251,8 +260,8 @@ export default function LoginPage() {
         dobDay,
         dobYear,
         email,
-        password
-      })
+        password,
+      }),
     });
 
     const msg = await res.text();
@@ -263,7 +272,8 @@ export default function LoginPage() {
   const handleGoogleLogin = () => {
     if (isGoogleLoading) return;
     setIsGoogleLoading(true);
-    window.location.href = "http://localhost:5000/auth/google";
+    const googleAuthUrl = "http://localhost:5000/auth/google";
+    window.location.href = googleAuthUrl;
   };
 
   return (
@@ -274,7 +284,7 @@ export default function LoginPage() {
         backgroundColor: "#f5f5f5",
         width: "100vw",
         height: "100vh",
-        overflow: "auto"
+        overflow: "auto",
       }}
     >
       <Box
@@ -283,7 +293,7 @@ export default function LoginPage() {
           display: "grid",
           placeItems: "center",
           bgcolor: "#f5f5f5",
-          p: 2
+          p: 2,
         }}
       >
         <Paper
@@ -292,7 +302,7 @@ export default function LoginPage() {
             width: "10.6cm",
             maxWidth: "92vw",
             p: 4,
-            borderRadius: 2
+            borderRadius: 2,
           }}
         >
           {/* HEADER */}
@@ -302,7 +312,7 @@ export default function LoginPage() {
                 fontSize: 28,
                 letterSpacing: 0.2,
                 mb: 1,
-                userSelect: "none"
+                userSelect: "none",
               }}
             >
               <Box component="span" sx={{ color: "#1a73e8", fontWeight: 549 }}>
@@ -347,7 +357,7 @@ export default function LoginPage() {
                     {loginAlert.message}
                   </Typography>
                   {loginAlert.details?.length > 0 && (
-                    <Typography variant="body2" sx={{ mt: 1 }}>
+                    <Typography variant="body2" component="p" sx={{ mt: 1 }}>
                       Missing: {loginAlert.details.join(", ")}
                     </Typography>
                   )}
@@ -379,13 +389,13 @@ export default function LoginPage() {
                 helperText={loginFieldErrors.password ? "Required" : " "}
               />
 
-              {/* Remember Me */}
+              {/* Remember me + Forgot password */}
               <Box
                 sx={{
                   mt: 1,
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
                 }}
               >
                 <FormControlLabel
@@ -417,8 +427,8 @@ export default function LoginPage() {
                     "&:hover": {
                       textDecoration: "underline",
                       backgroundColor: "transparent",
-                      cursor: "pointer"
-                    }
+                      cursor: "pointer",
+                    },
                   }}
                 >
                   Forgot Password?
@@ -431,7 +441,7 @@ export default function LoginPage() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  mt: 3
+                  mt: 3,
                 }}
               >
                 <Link
@@ -451,8 +461,8 @@ export default function LoginPage() {
                     borderRadius: 1,
                     "&:hover": {
                       backgroundColor: "#f6fafe",
-                      textDecoration: "none"
-                    }
+                      textDecoration: "none",
+                    },
                   }}
                 >
                   Create account
@@ -465,7 +475,7 @@ export default function LoginPage() {
                     textTransform: "none",
                     px: 3,
                     bgcolor: "#1a73e8",
-                    "&:hover": { bgcolor: "#185abc" }
+                    "&:hover": { bgcolor: "#185abc" },
                   }}
                 >
                   Sign in
@@ -478,7 +488,7 @@ export default function LoginPage() {
                   display: "flex",
                   alignItems: "center",
                   gap: 2,
-                  mt: 4
+                  mt: 4,
                 }}
               >
                 <Box sx={{ flex: 1, height: 1, bgcolor: "#dadce0" }} />
@@ -488,7 +498,7 @@ export default function LoginPage() {
                     color: "#5f6368",
                     fontWeight: 500,
                     textTransform: "uppercase",
-                    letterSpacing: 0.8
+                    letterSpacing: 0.8,
                   }}
                 >
                   or
@@ -522,15 +532,17 @@ export default function LoginPage() {
                     "@keyframes pulseEffect": {
                       "0%": { boxShadow: "0 0 0 0 rgba(26,115,232,0.3)" },
                       "70%": {
-                        boxShadow: "0 0 0 12px rgba(26,115,232,0)"
+                        boxShadow: "0 0 0 12px rgba(26,115,232,0)",
                       },
-                      "100%": { boxShadow: "0 0 0 0 rgba(26,115,232,0)" }
+                      "100%": {
+                        boxShadow: "0 0 0 0 rgba(26,115,232,0)",
+                      },
                     },
                     "&:hover": {
                       borderColor: "#dadce0",
                       backgroundColor: "#f8f9fa",
-                      transform: "translateY(-1px)"
-                    }
+                      transform: "translateY(-1px)",
+                    },
                   }}
                 >
                   <Box
@@ -563,20 +575,20 @@ export default function LoginPage() {
                     {createAlert.message}
                   </Typography>
                   {createAlert.details?.length > 0 && (
-                    <Typography variant="body2" sx={{ mt: 1 }}>
+                    <Typography variant="body2" component="p" sx={{ mt: 1 }}>
                       Missing: {createAlert.details.join(", ")}
                     </Typography>
                   )}
                 </Alert>
               )}
 
-              {/* FIRST / LAST NAME */}
               <Box sx={{ mt: 1 }}>
+                {/* First / Last Name */}
                 <Box
                   sx={{
                     display: "grid",
                     gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                    gap: 2
+                    gap: 2,
                   }}
                 >
                   <TextField
@@ -587,9 +599,7 @@ export default function LoginPage() {
                     variant="outlined"
                     sx={fieldSx}
                     error={createFieldErrors.firstName}
-                    helperText={
-                      createFieldErrors.firstName ? "Required" : " "
-                    }
+                    helperText={createFieldErrors.firstName ? "Required" : " "}
                   />
 
                   <TextField
@@ -600,9 +610,7 @@ export default function LoginPage() {
                     variant="outlined"
                     sx={fieldSx}
                     error={createFieldErrors.lastName}
-                    helperText={
-                      createFieldErrors.lastName ? "Required" : " "
-                    }
+                    helperText={createFieldErrors.lastName ? "Required" : " "}
                   />
                 </Box>
 
@@ -612,10 +620,10 @@ export default function LoginPage() {
                     display: "grid",
                     gridTemplateColumns: {
                       xs: "1fr",
-                      sm: "1fr 1fr 1fr"
+                      sm: "1fr 1fr 1fr",
                     },
                     gap: 2,
-                    mt: 2
+                    mt: 2,
                   }}
                 >
                   {/* Month */}
@@ -626,7 +634,6 @@ export default function LoginPage() {
                       onChange={(e) => setDobMonth(e.target.value)}
                       displayEmpty
                       sx={selectSx}
-                      error={createFieldErrors.dobMonth}
                     >
                       {months.map((m) => (
                         <MenuItem key={m} value={m}>
@@ -678,7 +685,7 @@ export default function LoginPage() {
                   </FormControl>
                 </Box>
 
-                {/* EMAIL */}
+                {/* Email */}
                 <TextField
                   label="Email"
                   variant="outlined"
@@ -691,7 +698,7 @@ export default function LoginPage() {
                   helperText={createEmailErrorMessage || " "}
                 />
 
-                {/* PASSWORD */}
+                {/* Password */}
                 <TextField
                   label="Enter your password"
                   type="password"
@@ -705,13 +712,13 @@ export default function LoginPage() {
                   helperText={createPasswordErrorMessage || " "}
                 />
 
-                {/* BOTTOM ROW */}
+                {/* Bottom row */}
                 <Box
                   sx={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    mt: 3
+                    mt: 3,
                   }}
                 >
                   <Link
@@ -729,7 +736,7 @@ export default function LoginPage() {
                       px: 1.5,
                       py: 0.8,
                       borderRadius: 1,
-                      "&:hover": { backgroundColor: "#f6fafe" }
+                      "&:hover": { backgroundColor: "#f6fafe" },
                     }}
                   >
                     Sign in
@@ -741,7 +748,7 @@ export default function LoginPage() {
                       textTransform: "none",
                       px: 3,
                       bgcolor: "#1a73e8",
-                      "&:hover": { bgcolor: "#1765cc" }
+                      "&:hover": { bgcolor: "#1765cc" },
                     }}
                     onClick={handleCreateAccount}
                   >
