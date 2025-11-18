@@ -1,7 +1,14 @@
 import React from "react";
-import { Box, Typography, Accordion, AccordionSummary, AccordionDetails, Button} from "@mui/material";
+import {
+  Box,
+  Typography,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Button,
+} from "@mui/material";
 import { Grid, Paper } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add"
+import AddIcon from "@mui/icons-material/Add";
 import FolderIcon from "@mui/icons-material/Folder";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import IconButton from "@mui/material/IconButton";
@@ -10,78 +17,28 @@ import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import MenuBar from "./MenuBar";
 import FileKebabMenu from "./FileKebabMenu";
-import { getFolders, createFolder, updateFolder, getBreadcrumb, getStarredFolders, getTrashFolders, getSharedFolders, getRecentFolders, copyFolder } from "../api/foldersApi";
+import {
+  getFolders,
+  createFolder,
+  updateFolder,
+  getBreadcrumb,
+  getStarredFolders,
+  getTrashFolders,
+  getSharedFolders,
+  getRecentFolders,
+  copyFolder,
+} from "../api/foldersApi";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useFiles } from "../context/fileContext.jsx";
+
 function Homepage({ initialView = "MY_DRIVE" }) {
-  const{ files, loading } = useFiles();
-
-  //TODO check if needed? here
-  if (loading) {
-    return (
-      <Typography sx={{ p: 2 }}>Loading recent files...</Typography>
-    );
-  }
-    
-
-  if (error) {
-    return (
-      <Typography sx={{ p: 2, color: "#d93025" }}>
-        {error}
-      </Typography>
-    );
-  }
-
-  const recentFiles = [...files]
-  .filter((file) => !file.isDeleted)
-  .sort((a, b) => new Date(b.lastAccessedAt) - new Date(a.lastAccessedAt))
-  .slice(0, 20);
+  const { files, loading } = useFiles();
 
   const [viewMode, setViewMode] = React.useState("list");
 
-
- 
-
-  // Folder action menu (for folders in "Suggested folders")
-  const [folderMenuAnchor, setFolderMenuAnchor] = React.useState(null);
-  const [selectedFolder, setSelectedFolder] = React.useState(null);
-  const folderMenuOpen = Boolean(folderMenuAnchor);
-
-  const handleFolderMenuOpen = (event, folder) => {
-    event.stopPropagation?.();          // don't trigger card click (open folder)
-    setFolderMenuAnchor(event.currentTarget);
-    setSelectedFolder(folder);
-  };
-
-  const handleFolderMenuClose = () => {
-    setFolderMenuAnchor(null);
-    setSelectedFolder(null);
-  };
-
-
-  //which folder are we currently viewing? null = My Drive root
-  const {folderId} = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
-
-  // view based on path or prop
-  const [currentView, setCurrentView] = React.useState(initialView);
-  // Folder comes from URL now:
-  React.useEffect(() => {
-    setCurrentFolderId(folderId || null);
-  }, [folderId]);
-
-
-
-  //breadcrumb data for current folder
-  const [breadcrumb, setBreadcrumb] = React.useState([]);
-  const [breadcrumbLoading, setBreadcrumbLoading] = React.useState(false);
-  const [breadcrumbError, setBreadcrumbError] = React.useState(null); 
-
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
   const [menuPosition, setMenuPosition] = React.useState(null);
+
   const [selectedFile, setSelectedFile] = React.useState(null);
 
   const menuOpen = Boolean(menuAnchorEl) || Boolean(menuPosition);
@@ -114,11 +71,48 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
     setSelectedFile(null);
   };
 
+  const recentFiles = [...files]
+    .filter((file) => !file.isDeleted)
+    .sort((a, b) => new Date(b.lastAccessedAt) - new Date(a.lastAccessedAt))
+    .slice(0, 20);
+
+  const [folderMenuAnchor, setFolderMenuAnchor] = React.useState(null);
+  const [selectedFolder, setSelectedFolder] = React.useState(null);
+  const folderMenuOpen = Boolean(folderMenuAnchor);
+
+  const handleFolderMenuOpen = (event, folder) => {
+    event.stopPropagation?.();
+    setFolderMenuAnchor(event.currentTarget);
+    setSelectedFolder(folder);
+  };
+
+  const handleFolderMenuClose = () => {
+    setFolderMenuAnchor(null);
+    setSelectedFolder(null);
+  };
+
+  const { folderId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [currentFolderId, setCurrentFolderId] = React.useState(
+    folderId || null
+  );
+
+  const [currentView, setCurrentView] = React.useState(initialView);
+
+  React.useEffect(() => {
+    setCurrentFolderId(folderId || null);
+  }, [folderId]);
+
+  const [breadcrumb, setBreadcrumb] = React.useState([]);
+  const [breadcrumbLoading, setBreadcrumbLoading] = React.useState(false);
+  const [breadcrumbError, setBreadcrumbError] = React.useState(null);
+
   const [rootFolders, setRootFolders] = React.useState([]);
   const [foldersLoading, setFoldersLoading] = React.useState(true);
   const [foldersError, setFoldersError] = React.useState(null);
 
-    // helper load folders depending on currentView and currentFolderId
   const loadFoldersForCurrentView = async () => {
     try {
       setFoldersLoading(true);
@@ -127,7 +121,6 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
       let folders;
 
       if (currentView === "MY_DRIVE") {
-        // My Drive → use parentFolderId (currentFolderId)
         folders = await getFolders(currentFolderId);
       } else if (currentView === "STARRED") {
         folders = await getStarredFolders();
@@ -136,7 +129,7 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
       } else if (currentView === "SHARED") {
         folders = await getSharedFolders();
       } else if (currentView === "RECENT") {
-        folders = await getRecentFolders(30); // or 20, whatever you prefer
+        folders = await getRecentFolders(30);
       }
 
       setRootFolders(folders);
@@ -148,48 +141,37 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
     }
   };
 
-
   React.useEffect(() => {
-    loadFoldersForCurrentView();    // <--- calls our new helper function
+    loadFoldersForCurrentView();
   }, [currentView, currentFolderId]);
 
-
-
-  // Load breadcrumb when currentFolderId changes
   React.useEffect(() => {
-    // Views other than My Drive have simple static breadcrumb
     if (currentView === "STARRED") {
       setBreadcrumb([{ _id: null, name: "Starred" }]);
-      setBreadcrumbError(null);
       setBreadcrumbLoading(false);
       return;
     }
 
     if (currentView === "TRASH") {
       setBreadcrumb([{ _id: null, name: "Trash" }]);
-      setBreadcrumbError(null);
       setBreadcrumbLoading(false);
       return;
     }
 
     if (currentView === "SHARED") {
       setBreadcrumb([{ _id: null, name: "Shared with me" }]);
-      setBreadcrumbError(null);
       setBreadcrumbLoading(false);
       return;
     }
 
     if (currentView === "RECENT") {
       setBreadcrumb([{ _id: null, name: "Recent" }]);
-      setBreadcrumbError(null);
       setBreadcrumbLoading(false);
       return;
     }
 
-    // MY_DRIVE logic:
     if (currentFolderId === null) {
       setBreadcrumb([{ _id: null, name: "My Drive" }]);
-      setBreadcrumbError(null);
       setBreadcrumbLoading(false);
       return;
     }
@@ -197,7 +179,6 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
     async function loadBreadcrumb() {
       try {
         setBreadcrumbLoading(true);
-        setBreadcrumbError(null);
 
         const chain = await getBreadcrumb(currentFolderId);
         setBreadcrumb(chain);
@@ -212,16 +193,11 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
     loadBreadcrumb();
   }, [currentView, currentFolderId]);
 
+  const handleFolderOpen = (folderId) => {
+    navigate(`/folders/${folderId}`);
+  };
 
-    
-    const handleFolderOpen = (folderId) => {
-      // Go to /folders/:id → triggers useParams → triggers data load
-      navigate(`/folders/${folderId}`);
-    };
-
-
-
-    const handleCreateFolder = async () => {
+  const handleCreateFolder = async () => {
     const name = window.prompt("Folder name:");
     if (!name || !name.trim()) return;
 
@@ -234,7 +210,7 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
         parentFolder: currentFolderId,
       });
 
-      await loadFoldersForCurrentView();  // <--- use helper
+      await loadFoldersForCurrentView();
     } catch (err) {
       console.error("Failed to create folder", err);
       setFoldersError(err.message || "Failed to create folder");
@@ -243,15 +219,11 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
     }
   };
 
-
-    // Rename selected folder
   const handleRenameFolder = async () => {
     if (!selectedFolder) return;
 
     const newName = window.prompt("New folder name:", selectedFolder.name);
-    if (!newName || !newName.trim()) {
-      return;
-    }
+    if (!newName || !newName.trim()) return;
 
     try {
       setFoldersLoading(true);
@@ -261,7 +233,7 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
         name: newName.trim(),
       });
 
-      await loadFoldersForCurrentView(); 
+      await loadFoldersForCurrentView();
     } catch (err) {
       console.error("Failed to rename folder", err);
       setFoldersError(err.message || "Failed to rename folder");
@@ -271,11 +243,9 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
     }
   };
 
-  // Move selected folder to trash (soft delete)
   const handleTrashFolder = async () => {
     if (!selectedFolder) return;
 
-    // If we're in Trash view or folder is already deleted → RESTORE
     const isCurrentlyTrashed =
       currentView === "TRASH" || selectedFolder.isDeleted;
 
@@ -302,7 +272,6 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
         handleFolderMenuClose();
       }
     } else {
-      // Not in trash → move to Trash
       const confirmDelete = window.confirm(
         `Move "${selectedFolder.name}" to trash?`
       );
@@ -327,8 +296,6 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
     }
   };
 
-
-  // Toggle star / unstar
   const handleToggleStarFolder = async () => {
     if (!selectedFolder) return;
 
@@ -352,67 +319,45 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
     }
   };
 
- 
+  const handleCopyFolder = async () => {
+    if (!selectedFolder) return;
 
+    const defaultName = `${selectedFolder.name} (copy)`;
+    const newName = window.prompt("Name for the copy:", defaultName);
+    if (newName === null) return;
 
-  // TODO - upate to read from database/endpoint/service
-  const suggestedFiles = [
-  {
-    name: "Lecture 26 - Stalling, Branch Data Hazards.pdf",
-    reason: "You opened • 6 Nov 2025",
-    owner: "cmpstudent@aub.edu.lb",
-    location: "lectures",
-    icon: "https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_pdf_x16.png",
-  },
-  {
-    name: "Econ 211 Test Banks.pdf",
-    reason: "You opened • 21 Oct 2025",
-    owner: "eduforall6@gmail.com",
-    location: "More Previous Drive",
-    icon: "https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_pdf_x16.png",
-  },
-];
+    const finalName =
+      newName && newName.trim() ? newName.trim() : defaultName;
 
-const handleCopyFolder = async () => {
-  if (!selectedFolder) return;
+    try {
+      setFoldersLoading(true);
+      setFoldersError(null);
 
-  const defaultName = `${selectedFolder.name} (copy)`;
-  const newName = window.prompt("Name for the copy:", defaultName);
-  if (newName === null) return; // user cancelled
+      await copyFolder(selectedFolder.publicId || selectedFolder._id, {
+        name: finalName,
+        parentFolder: currentView === "MY_DRIVE" ? currentFolderId : null,
+      });
 
-  const finalName =
-    newName && newName.trim() ? newName.trim() : defaultName;
+      await loadFoldersForCurrentView();
+    } catch (err) {
+      console.error("Failed to copy folder", err);
+      setFoldersError(err.message || "Failed to copy folder");
+    } finally {
+      setFoldersLoading(false);
+      handleFolderMenuClose();
+    }
+  };
 
-  try {
-    setFoldersLoading(true);
-    setFoldersError(null);
+  const suggestedFiles = recentFiles.map((file) => ({
+    ...file,
+    reason: file.lastAccessedAt
+      ? `You opened ${new Date(file.lastAccessedAt).toLocaleDateString()}`
+      : "Recently added",
+  }));
 
-    await copyFolder(selectedFolder.publicId || selectedFolder._id, {
-      name: finalName,
-      parentFolder: currentView === "MY_DRIVE" ? currentFolderId : null,
-    });
-
-    await loadFoldersForCurrentView();
-  } catch (err) {
-    console.error("Failed to copy folder", err);
-    setFoldersError(err.message || "Failed to copy folder");
-  } finally {
-    setFoldersLoading(false);
-    handleFolderMenuClose();
+  if (loading) {
+    return <Typography sx={{ p: 2 }}>Loading recent files...</Typography>;
   }
-};
-
-
-
-//for drawer
-const [detailsOpen, setDetailsOpen] = React.useState(false);
-const [selectedFile, setSelectedFile] = React.useState(null);
-
-const handleViewDetails = (file) => {
-  setSelectedFile(file);
-  setDetailsOpen(true);
-};
-
 
   return (
     <Box
@@ -424,23 +369,13 @@ const handleViewDetails = (file) => {
         height: "calc(100vh - 64px)",
         overflowY: "auto",
         color: "#000000ff",
-        borderTopLeftRadius: 12,
-        marginRight: detailsOpen
-          ? (window.innerWidth < 600 ? "100vw" : "360px")
-          : "0",
-        transition: "margin-right 0.25s ease",
-        }}
+      }}
     >
       <Typography variant="h5" sx={{ fontWeight: 600 }}>
         Welcome to Drive
       </Typography>
 
-      
-
-      {/* Breadcrumb + MenuBar go after this (as you already have) */}
-
-
-      {currentFolderId !== null && (    //to go back up after going in folder
+      {currentFolderId !== null && (
         <Typography
           variant="body2"
           sx={{
@@ -456,7 +391,6 @@ const handleViewDetails = (file) => {
         </Typography>
       )}
 
-      {/* Breadcrumb */}
       <Box sx={{ mt: 1, mb: 2 }}>
         {breadcrumbLoading ? (
           <Typography variant="body2" sx={{ color: "#5f6368" }}>
@@ -467,7 +401,14 @@ const handleViewDetails = (file) => {
             {breadcrumbError}
           </Typography>
         ) : (
-          <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.5 }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 0.5,
+            }}
+          >
             {breadcrumb.map((item, index) => {
               const isLast = index === breadcrumb.length - 1;
               const isRoot = item._id === null;
@@ -476,12 +417,11 @@ const handleViewDetails = (file) => {
                 if (isLast) return;
 
                 if (item._id === null) {
-                  navigate("/drive"); // My Drive root
+                  navigate("/drive");
                 } else {
                   navigate(`/folders/${item.publicId || item._id}`);
                 }
               };
-
 
               return (
                 <React.Fragment key={item._id ?? "root"}>
@@ -497,6 +437,7 @@ const handleViewDetails = (file) => {
                   >
                     {isRoot ? "My Drive" : item.name}
                   </Typography>
+
                   {!isLast && (
                     <Typography variant="body2" sx={{ color: "#5f6368" }}>
                       /
@@ -509,7 +450,7 @@ const handleViewDetails = (file) => {
         )}
       </Box>
 
-      <MenuBar/>
+      <MenuBar />
 
       <Accordion
         defaultExpanded
@@ -548,12 +489,11 @@ const handleViewDetails = (file) => {
             Suggested folders
           </Typography>
 
-          {/* "New folder" button */}
           <Button
             size="small"
             startIcon={<AddIcon />}
             onClick={(e) => {
-              e.stopPropagation(); // prevent accordion from toggling
+              e.stopPropagation();
               handleCreateFolder();
             }}
             sx={{
@@ -566,10 +506,8 @@ const handleViewDetails = (file) => {
           </Button>
         </AccordionSummary>
 
-                
         <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
           <Grid container spacing={2}>
-            {/* Loading */}
             {foldersLoading && (
               <Grid item xs={12}>
                 <Typography sx={{ color: "#5f6368", px: 1 }}>
@@ -578,7 +516,6 @@ const handleViewDetails = (file) => {
               </Grid>
             )}
 
-            {/* Error */}
             {foldersError && !foldersLoading && (
               <Grid item xs={12}>
                 <Typography sx={{ color: "red", px: 1 }}>
@@ -587,7 +524,6 @@ const handleViewDetails = (file) => {
               </Grid>
             )}
 
-            {/* Empty */}
             {!foldersLoading && !foldersError && rootFolders.length === 0 && (
               <Grid item xs={12}>
                 <Typography sx={{ color: "#5f6368", px: 1 }}>
@@ -596,15 +532,22 @@ const handleViewDetails = (file) => {
               </Grid>
             )}
 
-            {/* Actual folders from backend */}
             {!foldersLoading &&
               !foldersError &&
-              rootFolders.map((folder) => (       //loops through all folders and raws a card for each
-                <Grid item xs={12} sm={6} md={4} key={ folder.publicId || folder._id }>
+              rootFolders.map((folder) => (
+                <Grid
+                  item
+                  xs={12}
+                  sm={6}
+                  md={4}
+                  key={folder.publicId || folder._id}
+                >
                   <Paper
                     elevation={0}
-                    onClick={() => handleFolderOpen(folder.publicId || folder._id)}  //this funct sets current folder ID then get folders is called in backend  and it returns children of that folder 
-                    sx={{                                         //and lastly setRoot updates the list to show subfolders inside the one:   Full folder navigation
+                    onClick={() =>
+                      handleFolderOpen(folder.publicId || folder._id)
+                    }
+                    sx={{
                       display: "flex",
                       alignItems: "center",
                       gap: 2,
@@ -621,11 +564,15 @@ const handleViewDetails = (file) => {
                     }}
                   >
                     <FolderIcon sx={{ fontSize: 36, color: "#4285f4" }} />
+
                     <Box sx={{ flex: 1 }}>
                       <Typography sx={{ fontWeight: 600 }}>
                         {folder.name}
                       </Typography>
-                      <Typography variant="body2" sx={{ color: "#5f6368" }}>    {/*displays where folder belongs*/}
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "#5f6368" }}
+                      >
                         {folder.location === "TRASH"
                           ? "In Trash"
                           : folder.location === "SHARED"
@@ -640,10 +587,6 @@ const handleViewDetails = (file) => {
                     >
                       <MoreVertIcon sx={{ color: "#5f6368" }} />
                     </IconButton>
-
-                    {/* !removed old menu that was here */}
-                    
-
                   </Paper>
                 </Grid>
               ))}
@@ -692,16 +635,19 @@ const handleViewDetails = (file) => {
             <IconButton
               size="small"
               onClick={() => setViewMode("list")}
-              sx={{ color: viewMode === "list" ? "#1a73e8" : "#5f6368" }}
-              aria-label="List view"
+              sx={{
+                color: viewMode === "list" ? "#1a73e8" : "#5f6368",
+              }}
             >
               <ListIcon />
             </IconButton>
+
             <IconButton
               size="small"
               onClick={() => setViewMode("grid")}
-              sx={{ color: viewMode === "grid" ? "#1a73e8" : "#5f6368" }}
-              aria-label="Grid view"
+              sx={{
+                color: viewMode === "grid" ? "#1a73e8" : "#5f6368",
+              }}
             >
               <GridViewIcon />
             </IconButton>
@@ -729,139 +675,166 @@ const handleViewDetails = (file) => {
                 <Box sx={{ width: 40 }}></Box>
               </Box>
 
-              {suggestedFiles.map((file, index) => (
-                <Box
-                  key={index}
-                  onContextMenu={(e) => handleContextMenu(e, file)}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    px: 2,
-                    py: 1.5,
-                    borderBottom: "1px solid #f1f3f4",
-                    cursor: "pointer",
-                    "&:hover": {
-                      backgroundColor: "#f8f9fa",
-                    },
-                  }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", flex: 3, gap: 1.5 }}>
-                    <img src={file.icon} alt="" width={20} height={20} />
-                    <Typography sx={{ fontWeight: 500, color: "#202124" }}>
-                      {file.name}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {file.reason}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {file.owner}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {file.location}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ display: "flex", alignItems: "center", width: 40, justifyContent: "flex-end" }}>
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => handleMenuButtonClick(e, file)}
-                      aria-label="More actions"
-                    >
-                      <MoreVertIcon sx={{ color: "#5f6368" }} />
-                    </IconButton>
-                  </Box>
-                </Box>
-              ))}
-
-            </>
-          ) : (
-          <Grid container spacing={2} sx={{ px: 2, py: 1 }}>
-            {suggestedFiles.map((file, index) => (
-              <Grid item xs={12} sm={6} md={3} lg={2} key={index}>
-                <Paper
-                  elevation={0}
-                  onContextMenu={(e) => handleContextMenu(e, file)}
-                  sx={{
-                    position: "relative",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: 2,
-                    overflow: "hidden",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                >
-                  <IconButton 
-                    size="small" 
-                    sx={{ position: "absolute", top: 4, right: 4 }} 
-                    onClick={(e) => handleMenuButtonClick(e, file)}
-                    aria-label="More actions"
-                  >
-                    <MoreVertIcon sx={{ color: "#5f6368" }} />
-                  </IconButton>
-
+              {suggestedFiles.length === 0 ? (
+                <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                  No files match the current filters.
+                </Typography>
+              ) : (
+                suggestedFiles.map((file, index) => (
                   <Box
+                    key={index}
+                    onContextMenu={(e) => handleContextMenu(e, file)}
                     sx={{
                       display: "flex",
-                      justifyContent: "center",
                       alignItems: "center",
-                      height: 120,
-                      backgroundColor: "#f8f9fa",
+                      justifyContent: "space-between",
+                      px: 2,
+                      py: 1.5,
+                      borderBottom: "1px solid #f1f3f4",
+                      cursor: "pointer",
+                      "&:hover": { backgroundColor: "#f8f9fa" },
                     }}
                   >
-                    <img src={file.icon} alt="file icon" width={40} height={40} />
-                  </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        flex: 3,
+                        gap: 1.5,
+                      }}
+                    >
+                      <img src={file.icon} alt="" width={20} height={20} />
+                      <Typography sx={{ fontWeight: 500 }}>
+                        {file.name}
+                      </Typography>
+                    </Box>
 
-                  <Box sx={{ p: 1.5 }}>
-                    <Typography
+                    <Box sx={{ flex: 2 }}>
+                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                        {file.reason}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ flex: 2 }}>
+                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                        {file.owner}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ flex: 2 }}>
+                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                        {file.location}
+                      </Typography>
+                    </Box>
+
+                    <Box
                       sx={{
-                        fontWeight: 500,
-                        fontSize: 14,
-                        color: "#202124",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
+                        display: "flex",
+                        alignItems: "center",
+                        width: 40,
+                        justifyContent: "flex-end",
                       }}
                     >
-                      {file.name}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "#5f6368",
-                        fontSize: 12,
-                        mt: 0.5,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {file.owner}
-                    </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuButtonClick(e, file)}
+                      >
+                        <MoreVertIcon sx={{ color: "#5f6368" }} />
+                      </IconButton>
+                    </Box>
                   </Box>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
+                ))
+              )}
+            </>
+          ) : (
+            <Grid container spacing={2} sx={{ px: 2, py: 1 }}>
+              {suggestedFiles.length === 0 ? (
+                <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                  No files match the current filters.
+                </Typography>
+              ) : (
+                suggestedFiles.map((file, index) => (
+                  <Grid item xs={12} sm={6} md={3} lg={2} key={index}>
+                    <Paper
+                      elevation={0}
+                      onContextMenu={(e) => handleContextMenu(e, file)}
+                      sx={{
+                        position: "relative",
+                        border: "1px solid #e0e0e0",
+                        borderRadius: 2,
+                        overflow: "hidden",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        "&:hover": {
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+                          transform: "translateY(-2px)",
+                        },
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        sx={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                        }}
+                        onClick={(e) => handleMenuButtonClick(e, file)}
+                      >
+                        <MoreVertIcon sx={{ color: "#5f6368" }} />
+                      </IconButton>
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          height: 120,
+                          backgroundColor: "#f8f9fa",
+                        }}
+                      >
+                        <img
+                          src={file.icon}
+                          alt="file icon"
+                          width={40}
+                          height={40}
+                        />
+                      </Box>
+
+                      <Box sx={{ p: 1.5 }}>
+                        <Typography
+                          sx={{
+                            fontWeight: 500,
+                            fontSize: 14,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {file.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "#5f6368",
+                            fontSize: 12,
+                            mt: 0.5,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {file.owner}
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  </Grid>
+                ))
+              )}
+            </Grid>
           )}
-
         </AccordionDetails>
       </Accordion>
 
-      {/*  Shared kebab menu for FOLDERS */}
       <FileKebabMenu
         anchorEl={folderMenuAnchor}
         anchorPosition={null}
@@ -875,17 +848,13 @@ const handleViewDetails = (file) => {
         isInTrash={currentView === "TRASH" || selectedFolder?.isDeleted}
       />
 
-      {/*  Shared kebab menu for Files */}
       <FileKebabMenu
         anchorEl={menuAnchorEl}
         anchorPosition={anchorPosition}
         open={menuOpen}
         onClose={handleMenuClose}
-        selectedItem={selectedItem}
-        onViewDetails={handleViewDetails}
+        selectedItem={selectedFile}
       />
-
-
     </Box>
   );
 }
