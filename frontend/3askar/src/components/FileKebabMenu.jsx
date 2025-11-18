@@ -22,6 +22,7 @@ function FileKebabMenu({
   const { moveToTrash, toggleStar, renameFile, downloadFile, copyFile } =
     useFiles();
 
+function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTrash, onToggleStar, onCopy, isStarred, isInTrash }) {
   const anchorReference = anchorPosition ? "anchorPosition" : "anchorEl";
 
   const menuItemStyle = {

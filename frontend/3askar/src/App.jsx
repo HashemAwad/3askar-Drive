@@ -42,16 +42,23 @@ const ProtectedLayout = () => {
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route element={<ProtectedLayout />}>
-          <Route path="/" element={<Homepage />} />
-          <Route path="/mydrive" element={<MyDrive />} />
-          <Route path="/starred" element={<Starred />} />
-          <Route path="/shared" element={<Shared />} />
-          <Route path="/bin" element={<Bin />} />
-        </Route>
-      </Routes>
+      <div style={{ backgroundColor: "#fff", height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <Navbar />
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          <Sidebar />
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <Routes>
+              <Route path="/" element={<Homepage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/mydrive" element={<MyDrive />} />
+              <Route path="/starred" element={<Starred />} />
+              <Route path="/shared" element={<Shared />} />
+              <Route path="/bin" element={<Bin />} />
+              <Route path="/folders/:folderId" element={<Homepage />} />
+            </Routes>
+          </div>
+        </div>
+      </div>
     </Router>
   );
 }
