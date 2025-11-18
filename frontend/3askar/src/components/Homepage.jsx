@@ -12,24 +12,46 @@ import { useFiles } from "../context/fileContext.jsx";
 import FileKebabMenu from "./FileKebabMenu"; // <-- ONLY NEW IMPORT ADDED
 
 function Homepage() {
-  const{ files, loading } = useFiles();
+  const { filteredFiles, loading, filterBySource } = useFiles();
+  const [viewMode, setViewMode] = React.useState("list");
+  const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
+  const [menuPosition, setMenuPosition] = React.useState(null);
+  const [selectedItem, setSelectedItem] = React.useState(null);
+
+  const baseFiles = React.useMemo(
+    () => filterBySource(filteredFiles, "anywhere"),
+    [filteredFiles, filterBySource]
+  );
+
+  const recentFiles = React.useMemo(
+    () =>
+      [...baseFiles]
+        .filter((file) => !file.isDeleted)
+        .sort(
+          (a, b) =>
+            new Date(b.lastAccessedAt || b.uploadedAt) -
+            new Date(a.lastAccessedAt || a.uploadedAt)
+        )
+        .slice(0, 20),
+    [baseFiles]
+  );
+
+  const suggestedFiles = React.useMemo(
+    () =>
+      recentFiles.map((file) => ({
+        ...file,
+        reason: file.lastAccessedAt
+          ? `You opened ${new Date(file.lastAccessedAt).toLocaleDateString()}`
+          : "Recently added",
+      })),
+    [recentFiles]
+  );
 
   if (loading) {
     return (
       <Typography sx={{ p: 2 }}>Loading recent files...</Typography>
     );
   }
-
-  const recentFiles = [...files]
-  .filter((file) => !file.isDeleted)
-  .sort((a, b) => new Date(b.lastAccessedAt) - new Date(a.lastAccessedAt))
-  .slice(0, 20);
-
-  const [viewMode, setViewMode] = React.useState("list");
-
-  const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
-  const [menuPosition, setMenuPosition] = React.useState(null);
-  const [selectedItem, setSelectedItem] = React.useState(null);
 
   const menuOpen = Boolean(menuAnchorEl) || Boolean(menuPosition);
 
@@ -62,22 +84,22 @@ function Homepage() {
   };
 
   // TODO - upate to read from database/endpoint/service
-  const suggestedFiles = [
-  {
-    name: "Lecture 26 - Stalling, Branch Data Hazards.pdf",
-    reason: "You opened • 6 Nov 2025",
-    owner: "cmpstudent@aub.edu.lb",
-    location: "lectures",
-    icon: "https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_pdf_x16.png",
-  },
-  {
-    name: "Econ 211 Test Banks.pdf",
-    reason: "You opened • 21 Oct 2025",
-    owner: "eduforall6@gmail.com",
-    location: "More Previous Drive",
-    icon: "https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_pdf_x16.png",
-  },
-];
+  // const suggestedFiles = [
+  //   {
+  //     name: "Lecture 26 - Stalling, Branch Data Hazards.pdf",
+  //     reason: "You opened • 6 Nov 2025",
+  //     owner: "cmpstudent@aub.edu.lb",
+  //     location: "lectures",
+  //     icon: "https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_pdf_x16.png",
+  //   },
+  //   {
+  //     name: "Econ 211 Test Banks.pdf",
+  //     reason: "You opened • 21 Oct 2025",
+  //     owner: "eduforall6@gmail.com",
+  //     location: "More Previous Drive",
+  //     icon: "https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_pdf_x16.png",
+  //   },
+  // ];
 
   return (
     <Box
@@ -257,7 +279,11 @@ function Homepage() {
                 <Box sx={{ width: 40 }}></Box>
               </Box>
 
-              {suggestedFiles.map((file, index) => (
+              {suggestedFiles.length === 0 ? (
+                <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                  No files match the current filters.
+                </Typography>
+              ) : suggestedFiles.map((file, index) => (
                 <Box
                   key={index}
                   onContextMenu={(e) => handleContextMenu(e, file)}
@@ -314,7 +340,11 @@ function Homepage() {
             </>
           ) : (
           <Grid container spacing={2} sx={{ px: 2, py: 1 }}>
-            {suggestedFiles.map((file, index) => (
+            {suggestedFiles.length === 0 ? (
+              <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                No files match the current filters.
+              </Typography>
+            ) : suggestedFiles.map((file, index) => (
               <Grid item xs={12} sm={6} md={3} lg={2} key={index}>
                 <Paper
                   elevation={0}
@@ -394,7 +424,7 @@ function Homepage() {
         anchorPosition={anchorPosition}
         open={menuOpen}
         onClose={handleMenuClose}
-        selectedItem={selectedItem}
+        selectedFile={selectedItem}
       />
     </Box>
   );

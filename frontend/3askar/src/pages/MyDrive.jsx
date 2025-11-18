@@ -19,21 +19,19 @@ const formatDate = (value) => {
 };
 
 function MyDrive() {
-  const { files, loading, toggleStar } = useFiles();
+  const { filteredFiles, loading, toggleStar, filterBySource } = useFiles();
   const [viewMode, setViewMode] = React.useState("list");
 
   const driveFiles = React.useMemo(
-    () =>
-      files.filter(
-        (file) =>
-          !file.isDeleted && (file.location?.toLowerCase() === "my drive" || !file.location)
-      ),
-    [files]
+    () => filterBySource(filteredFiles, "myDrive"),
+    [filteredFiles, filterBySource]
   );
 
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading files...</Typography>;
   }
+
+ 
 
   return (
     <Box
@@ -54,6 +52,12 @@ function MyDrive() {
 
       <MenuBar />
 
+      {driveFiles.length === 0 ? (
+        <Typography sx={{ p: 4, color: "#5f6368" }}>
+          No files match the current filters.
+        </Typography>
+      ) : (
+        <>
       <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
         <IconButton
           onClick={() => setViewMode("list")}
@@ -210,6 +214,8 @@ function MyDrive() {
             </Grid>
           ))}
         </Grid>
+      )}
+      </>
       )}
     </Box>
   );

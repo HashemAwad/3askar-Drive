@@ -28,18 +28,15 @@ const getSortValue = (file, field) => {
 };
 
 function Shared() {
-  const { files, loading } = useFiles();
+  const { filteredFiles, loading, filterBySource } = useFiles();
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
   const [activeFile, setActiveFile] = React.useState(null);
 
   const sharedFiles = React.useMemo(
-    () =>
-      files.filter(
-        (file) => !file.isDeleted && (file.sharedWith?.length ?? 0) > 0
-      ),
-    [files]
+    () => filterBySource(filteredFiles, "shared"),
+    [filteredFiles, filterBySource]
   );
 
   const sortedFiles = React.useMemo(() => {
