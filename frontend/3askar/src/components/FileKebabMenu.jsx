@@ -22,6 +22,7 @@ function FileKebabMenu({
   onStartRename,
   onStartShare,
   onViewDetails,
+  onActionComplete,
 
   // FOLDER MODE props
   onRename,
@@ -34,8 +35,7 @@ function FileKebabMenu({
   onFolderDetails,
   onDownloadFolder,
 }) {
-  const { moveToTrash, toggleStar, renameFile, downloadFile, copyFile } =
-    useFiles();
+  const { moveToTrash, toggleStar, downloadFile, copyFile } = useFiles();
 
   const anchorReference = anchorPosition ? "anchorPosition" : "anchorEl";
 
@@ -80,6 +80,7 @@ function FileKebabMenu({
     } else if (selectedFile) {
       await copyFile(selectedFile);
     }
+    onClose?.();
     onClose?.();
   };
 

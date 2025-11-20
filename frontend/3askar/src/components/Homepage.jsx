@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Box,
   Typography,
@@ -43,10 +43,15 @@ const formatDate = (value) => {
   return parsed.toLocaleDateString();
 };
 
+import DetailsPanel from "./DetailsPanel.jsx";
+import ShareDialog from "./ShareDialog.jsx";
 
 function Homepage({ initialView = "MY_DRIVE" }) {
   const { files, loading } = useFiles();
-
+  const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
+  const [detailsFile, setDetailsFile] = React.useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
   const [viewMode, setViewMode] = React.useState("list");
 
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
@@ -172,7 +177,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
 
   const [currentView, setCurrentView] = React.useState(initialView);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentFolderId(folderId || null);
   }, [folderId]);
 
@@ -246,11 +251,11 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadFoldersForCurrentView();
   }, [currentView, currentFolderId]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentView === "STARRED") {
       setBreadcrumb([{ _id: null, name: "Starred" }]);
       setBreadcrumbLoading(false);
@@ -454,6 +459,22 @@ function Homepage({ initialView = "MY_DRIVE" }) {
       : "Recently added",
   }));
 
+  useEffect(() => {
+  if (!selectedFile) return;
+
+  const updated = files.find(f => f.id === selectedFile.id);
+  if (updated) setSelectedFile(updated);
+}, [files, selectedFile]);
+
+  useEffect(() => {
+    if (!detailsFile) return;
+
+    const updated = files.find(f => f.id === detailsFile.id);
+    if (updated) setDetailsFile(updated);
+  }, [files, detailsFile]);
+
+
+
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading recent files...</Typography>;
   }
@@ -557,7 +578,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         )}
       </Box>
 
-      <MenuBar />
+      <MenuBar visibleFiles={recentFiles} />
 
       {/* FOLDERS ACCORDION */}
       <Accordion
@@ -1094,7 +1115,39 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         open={menuOpen}
         onClose={handleMenuClose}
         selectedFile={selectedFile}
+        onStartShare={(file) => {
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+        onViewDetails={(file) => {
+          setDetailsFile(file);
+          setDetailsPanelOpen(true);
+        }}
       />
+
+
+      <DetailsPanel
+        open={detailsPanelOpen}
+        file={detailsFile}
+        onClose={() => setDetailsPanelOpen(false)}
+        onManageAccess={(file) => {
+          setDetailsPanelOpen(false);
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+      />
+
+      <ShareDialog
+      open={shareDialogOpen}
+      file={fileToShare}
+      onClose={() => {
+        setShareDialogOpen(false);
+        setFileToShare(null);
+      }}
+    />
+
+
+
 
       <FolderDetailsPanel
         open={folderDetailsOpen}

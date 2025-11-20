@@ -72,8 +72,8 @@ function Shared() {
 
 
   const sharedFiles = React.useMemo(
-    () => filterBySource(filteredFiles, "shared"),
-    [filteredFiles, filterBySource]
+    () => filterBySource(undefined, "shared"),
+    [filterBySource]
   );
 
   const sortedFiles = React.useMemo(() => {
@@ -153,7 +153,7 @@ function Shared() {
         Shared with me
       </Typography>
 
-      <MenuBar />
+      <MenuBar visibleFiles={sortedFiles} />
 
       <Box
         sx={{

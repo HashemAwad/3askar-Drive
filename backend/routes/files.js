@@ -1,4 +1,4 @@
-// Helper to check GridFS readiness
+﻿// Helper to check GridFS readiness
 function ensureGridFSReady(res) {
     if (!gridfsBucket) {
         res.status(503).json({ message: "GridFS Bucket not initialized" });
@@ -22,6 +22,7 @@ const Folder = require("../models/Folder");
 
 
 const OWNER_FIELDS = "name email picture";
+const SHARED_WITH_POPULATE = { path: "sharedWith.user", select: OWNER_FIELDS };
 
 async function findFolderByAnyId(id) {
   if (!id) return null;
@@ -45,7 +46,7 @@ mongoose.connection.once("open", () => {
     gridfsBucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
         bucketName: "files",
     });
-    console.log("✅ GridFS Bucket initialized in files route");
+    console.log("âœ… GridFS Bucket initialized in files route");
 });
 
 // router.use((req, res, next) => { //for testing with Postman
@@ -91,7 +92,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         uploadStream.on("finish", async () => {
             try {
                 const realId = uploadStream.id;
-                console.log("UPLOAD FINISHED — REAL GRIDFS ID:", realId);
+                console.log("UPLOAD FINISHED â€” REAL GRIDFS ID:", realId);
                 const files = await gridfsBucket.find({ _id: realId }).toArray();
                 const dbFile = files[0];
                 if (!dbFile) {
@@ -150,7 +151,7 @@ router.get("/:id/download", async (req, res) => {
         }
         const file = files[0]; // GridFS metadata
 
-        // 🔹 Update lastAccessed in our File metadata collection
+        // ðŸ”¹ Update lastAccessed in our File metadata collection
         if (req.user) {
             await File.updateOne(
                 { gridFsId: objectId, owner: req.user._id },
@@ -188,7 +189,7 @@ router.delete("/:id", async (req, res) =>{
     if (!ensureGridFSReady(res)) return;
     try{
         // req.user = { _id: new ObjectId() }; // TEMPORARY for Postman
-        // console.log("➡️ DELETE ROUTE REACHED");
+        // console.log("âž¡ï¸ DELETE ROUTE REACHED");
         // console.log("fileId =", req.params.id);
         // console.log("req.user =", req.user);
         // console.log("gridfsBucket =", gridfsBucket);
@@ -242,7 +243,7 @@ router.delete("/:id", async (req, res) =>{
 router.post("/saveMetadata", async (req, res) => {
     if (!ensureGridFSReady(res)) return;
     try {
-        console.log("➡️ /files/saveMetadata route reached"); //debugging
+        console.log("âž¡ï¸ /files/saveMetadata route reached"); //debugging
         // req.user  ={_id: new ObjectId() }; // TEMPORARY for Postman
 
         if (!req.user){
@@ -307,7 +308,10 @@ router.post("/saveMetadata", async (req, res) => {
 
         // Step 4: Save in MongoDB
         const savedFile = await newFile.save();
-        const populatedFile = await savedFile.populate("owner", OWNER_FIELDS);
+        const populatedFile = await savedFile.populate([
+            { path: "owner", select: OWNER_FIELDS },
+            SHARED_WITH_POPULATE,
+        ]);
         
         // Step 5: Respond
         res.status(201).json({
@@ -343,6 +347,7 @@ router.get("/", async (req, res) => {
             isDeleted: false,
         })
         .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE)
         .sort({ uploadDate: -1 }); // newest first (descending)
 
         res.json(files);
@@ -365,7 +370,9 @@ router.patch("/:id/rename", async (req, res) => {
             { _id: req.params.id, owner: req.user._id },
             { $set: { filename: newName } },
             { new: true }
-        ).populate("owner", OWNER_FIELDS);
+        )
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -439,7 +446,10 @@ router.post("/:id/copy", async (req, res) => {
         });
 
         const savedCopy = await fileCopy.save();
-        const populatedCopy = await savedCopy.populate("owner", OWNER_FIELDS); 
+        const populatedCopy = await savedCopy.populate([
+            { path: "owner", select: OWNER_FIELDS },
+            SHARED_WITH_POPULATE,
+        ]); 
 
         res.status(201).json({ message: "File copied", file: populatedCopy });
 
@@ -461,7 +471,9 @@ router.patch("/:id/star", async (req, res) => {
             { _id: req.params.id, owner: req.user._id },
             { $set: { isStarred: !!isStarred } },
             { new: true }
-        ).populate("owner", OWNER_FIELDS);
+        )
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -485,7 +497,9 @@ router.patch("/:id/trash", async (req, res) => { // put path to bin
             { _id: req.params.id, owner: req.user._id },
             { $set: { isDeleted: !!isDeleted } },
             { new: true }
-        ).populate("owner", OWNER_FIELDS);
+        )
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -514,7 +528,9 @@ router.patch("/:id/move", async (req, res) => {
                 }
             },
             { new: true }
-        ).populate("owner", OWNER_FIELDS);
+        )
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -586,6 +602,7 @@ router.get("/list/mydrive", async (req, res) => {
             folderId: null
         })
         .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE)
         .sort({ filename: 1 });
 
         res.json(files);
@@ -618,7 +635,9 @@ router.get("/list/folder/:folderId", async (req, res) => {
       isDeleted: false,
       folderId: folderObjectId,
     })
-      .populate("owner", OWNER_FIELDS)
+      
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE)
       .sort({ filename: 1 });
 
     res.json(files);
@@ -637,7 +656,9 @@ router.get("/list/starred", async (req, res) => {
             owner: req.user._id,
             isDeleted: false,
             isStarred: true
-        }).populate("owner", OWNER_FIELDS);
+        })
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         res.json(files);
     } catch (err) {
@@ -653,7 +674,9 @@ router.get("/list/trash", async (req, res) => {
         const files = await File.find({
             owner: req.user._id,
             isDeleted: true
-        }).populate("owner", OWNER_FIELDS);
+        })
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         res.json(files);
     } catch (err) {
@@ -671,6 +694,7 @@ router.get("/list/recent", async (req, res) => {
             isDeleted: false
         })
         .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE)
         .sort({ lastAccessed: -1 })
         .limit(20); //check if its for all 
 
@@ -703,7 +727,10 @@ router.patch("/:id/share", async (req, res) => {
         }
 
         await file.save();
-        const populated = await file.populate("owner", OWNER_FIELDS);
+        const populated = await file.populate([
+            { path: "owner", select: OWNER_FIELDS },
+            SHARED_WITH_POPULATE,
+        ]);
         res.json({ message: "File shared", file: populated });
 
     } catch (err) {
@@ -725,7 +752,10 @@ router.patch("/:id/unshare", async (req, res) => {
 
         file.sharedWith = file.sharedWith.filter(x => x.user.toString() !== userId);
         await file.save();
-        const populated = await file.populate("owner", OWNER_FIELDS);
+        const populated = await file.populate([
+            { path: "owner", select: OWNER_FIELDS },
+            SHARED_WITH_POPULATE,
+        ]);
 
         res.json({ message: "User unshared", file: populated });
 
@@ -753,7 +783,10 @@ router.patch("/:id/permission", async (req, res) => {
 
         target.permission = permission;
         await file.save();
-        const populated = await file.populate("owner", OWNER_FIELDS);
+        const populated = await file.populate([
+            { path: "owner", select: OWNER_FIELDS },
+            SHARED_WITH_POPULATE,
+        ]);
 
         res.json({ message: "Permission updated", file: populated });
 
@@ -775,7 +808,9 @@ router.get("/shared", async (req, res) => {
         const files = await File.find({
             "sharedWith.user": req.user._id,
             isDeleted: false
-        }).populate("owner", OWNER_FIELDS);
+        })
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         res.json(files);
 
@@ -785,7 +820,253 @@ router.get("/shared", async (req, res) => {
     }
 });
 
+// PATCH /files/:id/description
+router.patch("/:id/description", async (req, res) => {
+    try {
+        const { description } = req.body;
+
+        if (!req.user) 
+            return res.status(401).json({ message: "Not authenticated" });
+
+        if (typeof description !== "string")
+            return res.status(400).json({ message: "Invalid description" });
+
+        const updated = await File.findOneAndUpdate(
+            { _id: req.params.id, owner: req.user._id },
+            { $set: { description: description.trim() } },
+            { new: true }
+        ).populate("owner", OWNER_FIELDS)
+         .populate("sharedWith.user", "name email picture");
+
+        if (!updated)
+            return res.status(404).json({ message: "File not found" });
+
+        res.json({ message: "Description updated", file: updated });
+
+    } catch (err) {
+        console.error("PATCH /description error:", err);
+        res.status(500).json({ message: "Server error updating description" });
+    }
+});
+
+// GET /files/search
+// Full search with basic + advanced filters
+router.get("/search", async (req, res) => {
+    if (!ensureGridFSReady(res)) return;
+
+    try {
+        if (!req.user) {
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+
+        const {
+            q,
+            type,
+            owner,
+            ownerId,
+            location,
+            starred,
+            inBin,
+            dateModified,
+            afterDate,
+            beforeDate,
+            includesWords,
+            itemName,
+        } = req.query;
+
+        const andConditions = [];
+        const toObjectId = (value) => {
+            try {
+                return new ObjectId(value);
+            } catch {
+                return null;
+            }
+        };
+
+        // Visibility: only files the user can access:
+        //  - owned by user
+        //  - OR shared with user
+        andConditions.push({
+            $or: [{ owner: req.user._id }, { "sharedWith.user": req.user._id }],
+        });
+
+        // In Bin / not in Bin
+        if (inBin === "true") {
+            andConditions.push({ isDeleted: true });
+        } else {
+            // Default: only non-deleted (unless user explicitly searches bin)
+            andConditions.push({ isDeleted: false });
+        }
+
+        // Location (Anywhere / My Drive / Shared with me)
+        if (location === "mydrive") {
+            andConditions.push({
+                owner: req.user._id,
+                location: /my drive/i,
+            });
+        } else if (location === "shared") {
+            andConditions.push({
+                "sharedWith.user": req.user._id,
+            });
+        } // "anywhere" – no extra condition beyond visibility + isDeleted
+
+        // Owner filter (anyone / me / notMe / person)
+        if (owner === "me") {
+            andConditions.push({ owner: req.user._id });
+        } else if (owner === "notMe") {
+            // still restricted by visibility, but exclude files owned by me
+            andConditions.push({ owner: { $ne: req.user._id } });
+        } else if (owner === "person" && ownerId) {
+            const specificOwner = toObjectId(ownerId) || ownerId;
+            andConditions.push({ owner: specificOwner });
+        }
+
+        // Starred
+        if (starred === "true") {
+            andConditions.push({ isStarred: true });
+        }
+
+        // Helper: type condition based on simplified types
+        const buildTypeCondition = (t) => {
+            if (!t || t === "any") return null;
+
+            const pdfRegex = /pdf/i;
+            const imageExt = /\.(png|jpe?g|gif|bmp|webp)$/i;
+            const videoExt = /\.(mp4|mov|avi|mkv|webm)$/i;
+            const docExt = /\.(docx?|txt|rtf)$/i;
+
+            switch (t) {
+                case "pdf":
+                    return {
+                        $or: [{ type: pdfRegex }, { filename: /\.pdf$/i }, { originalName: /\.pdf$/i }],
+                    };
+                case "images":
+                    return {
+                        $or: [
+                            { type: /^image\//i },
+                            { filename: imageExt },
+                            { originalName: imageExt },
+                        ],
+                    };
+                case "videos":
+                    return {
+                        $or: [
+                            { type: /^video\//i },
+                            { filename: videoExt },
+                            { originalName: videoExt },
+                        ],
+                    };
+                case "docs":
+                    return {
+                        $or: [
+                            { filename: docExt },
+                            { originalName: docExt },
+                            { type: /wordprocessing/i },
+                        ],
+                    };
+                case "folders":
+                    return { type: /folder/i };
+                default:
+                    return null;
+            }
+        };
+
+        const typeCondition = buildTypeCondition(type);
+        if (typeCondition) andConditions.push(typeCondition);
+
+        // Basic query "q": search in name + description
+        if (q && q.trim()) {
+            const regex = new RegExp(q.trim(), "i");
+            andConditions.push({
+                $or: [
+                    { filename: regex },
+                    { originalName: regex },
+                    { description: regex },
+                ],
+            });
+        }
+
+        // Item name: refine name explicitly
+        if (itemName && itemName.trim()) {
+            const regexName = new RegExp(itemName.trim(), "i");
+            andConditions.push({
+                $or: [{ filename: regexName }, { originalName: regexName }],
+            });
+        }
+
+        // Includes words: use description as "content"
+        if (includesWords && includesWords.trim()) {
+            const regexContent = new RegExp(includesWords.trim(), "i");
+            andConditions.push({ description: regexContent });
+        }
+
+        // Date modified / upload date filter
+        const dateField = "uploadDate"; // treating uploadDate as modified date for now
+        let start = null;
+        let end = null;
+        const today = new Date();
+
+        const parseDateOnly = (str) => {
+            const d = new Date(str);
+            if (Number.isNaN(d.getTime())) return null;
+            // Force to start of the day
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        };
+
+        if (dateModified && dateModified !== "anytime") {
+            if (dateModified === "today") {
+                start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                end = new Date(start);
+                end.setDate(end.getDate() + 1);
+            } else if (dateModified === "yesterday") {
+                end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                start = new Date(end);
+                start.setDate(start.getDate() - 1);
+            } else if (dateModified === "last7Days") {
+                end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+                start = new Date(end);
+                start.setDate(start.getDate() - 7);
+            } else if (dateModified === "last30Days") {
+                end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+                start = new Date(end);
+                start.setDate(start.getDate() - 30);
+            } else if (dateModified === "last90Days") {
+                end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+                start = new Date(end);
+                start.setDate(start.getDate() - 90);
+            } else if (dateModified === "custom") {
+                const after = afterDate ? parseDateOnly(afterDate) : null;
+                const before = beforeDate ? parseDateOnly(beforeDate) : null;
+
+                if (after) start = after;
+                if (before) {
+                    end = new Date(before.getFullYear(), before.getMonth(), before.getDate() + 1);
+                }
+            }
+
+            if (start || end) {
+                const dateQuery = {};
+                if (start) dateQuery.$gte = start;
+                if (end) dateQuery.$lte = end;
+                andConditions.push({ [dateField]: dateQuery });
+            }
+        }
+
+        const mongoQuery = andConditions.length ? { $and: andConditions } : {};
+
+        const results = await File.find(mongoQuery)
+            .populate("owner", OWNER_FIELDS)
+            .populate("sharedWith.user", "firstName lastName email")
+            .sort({ uploadDate: -1 });
+
+        res.json(results);
+    } catch (err) {
+        console.error("Error in GET /files/search:", err);
+        res.status(500).json({ message: "Server error during file search" });
+    }
+});
 
 module.exports = router;
 
     
+

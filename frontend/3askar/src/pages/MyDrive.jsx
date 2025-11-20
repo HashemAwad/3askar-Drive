@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Box, Typography, IconButton, Grid, Paper } from "@mui/material";
 import MenuBar from "../components/MenuBar";
 import FolderIcon from "@mui/icons-material/Folder";
@@ -10,19 +10,24 @@ import { useFiles } from "../context/fileContext.jsx";
 import FileKebabMenu from "../components/FileKebabMenu";
 import RenameDialog from "../components/RenameDialog";
 import ShareDialog from "../components/ShareDialog.jsx";
+import DetailsPanel from "../components/DetailsPanel.jsx";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
 
 const formatDate = (value) => {
-  if (!value) return "—";
+  if (!value) return "";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "—";
+  if (Number.isNaN(parsed.getTime())) return "";
   return parsed.toLocaleDateString();
 };
 
 function MyDrive() {
-  const { files, loading, error, toggleStar, renameFile } = useFiles();
+  const { filteredFiles, loading, error, toggleStar, renameFile } = useFiles();
+
+  // DETAILS PANEL
+  const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
+  const [detailsFile, setDetailsFile] = React.useState(null);
 
   const [viewMode, setViewMode] = React.useState("list");
 
@@ -46,14 +51,20 @@ function MyDrive() {
     setSelectedFile(null);
   };
 
+  useEffect(() => {
+    if (!detailsFile) return;
+    const updated = filteredFiles.find((f) => f.id === detailsFile.id);
+    if (updated) setDetailsFile(updated);
+  }, [filteredFiles, detailsFile]);
+
   const driveFiles = React.useMemo(
     () =>
-      files.filter(
+      filteredFiles.filter(
         (file) =>
           !file.isDeleted &&
           (file.location?.toLowerCase() === "my drive" || !file.location)
       ),
-    [files]
+    [filteredFiles]
   );
 
   if (loading) {
@@ -283,6 +294,21 @@ function MyDrive() {
           setRenameDialogOpen(true);
         }}
         onStartShare={(file) => {
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+        onViewDetails={(file) => {
+          setDetailsFile(file);
+          setDetailsPanelOpen(true);
+        }}
+      />
+
+      <DetailsPanel
+        open={detailsPanelOpen}
+        file={detailsFile}
+        onClose={() => setDetailsPanelOpen(false)}
+        onManageAccess={(file) => {
+          setDetailsPanelOpen(false);
           setFileToShare(file);
           setShareDialogOpen(true);
         }}
