@@ -937,6 +937,17 @@ export const FileProvider = ({ children }) => {
         count: selectedFiles.length,
         options,
       });
+
+      const folderLimitBytes = 100 * 1024 * 1024;
+      const folderTotalBytes = options.folderId
+        ? selectedFiles.reduce((sum, f) => sum + (f.size || 0), 0)
+        : 0;
+      if (options.folderId && folderTotalBytes > folderLimitBytes) {
+        setError("Folder upload exceeds 100 MB limit");
+        finish({ status: "folder-limit", bytes: folderTotalBytes });
+        return [];
+      }
+
       setUploading(true);
 
       const uploaded = [];
@@ -972,7 +983,10 @@ export const FileProvider = ({ children }) => {
 
           const { data: uploadData } = await apiClient.post(
             "/files/upload",
-            formData
+            formData,
+            options.folderId
+              ? { headers: { "x-folder-total-bytes": folderTotalBytes } }
+              : undefined
           );
 
           const metadataPayload = {

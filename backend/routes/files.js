@@ -70,6 +70,11 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         if (!req.user){
             return res.status(401).json({ message: "Not authenticated" });
         }
+        const folderTotalBytes = Number(req.headers["x-folder-total-bytes"] || 0);
+        const folderLimitBytes = 100 * 1024 * 1024; // 100 MB per folder upload batch
+        if (folderTotalBytes > folderLimitBytes) {
+            return res.status(413).json({ message: "Folder upload exceeds 100 MB limit" });
+        }
         if (!req.file) {
             return res.status(400).json({ message: "No file uploaded" });
         }
