@@ -1287,7 +1287,6 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         }}
         onSubmit={handleFolderRenameSubmit}
       />
-    </Box >
 
       <RenameDialog
         open={copyDialogOpen}
@@ -1301,7 +1300,6 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         }}
         onSubmit={handleFolderCopySubmit}
       />
-
     </Box>
   );
 }
