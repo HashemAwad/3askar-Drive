@@ -890,8 +890,6 @@ export const FileProvider = ({ children }) => {
         uploadFiles,
         refreshFiles,
         runFileSearch,
-        refreshFiles,
-        runFileSearch,
         clearSearch,
         canRename,
 
