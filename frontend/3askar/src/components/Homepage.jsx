@@ -15,6 +15,8 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import MenuBar from "./MenuBar";
+import BatchToolbar from "./BatchToolbar";
+import { Checkbox } from "@mui/material";
 import FileKebabMenu from "./FileKebabMenu";
 import {
   getFolders,
@@ -47,7 +49,7 @@ import DetailsPanel from "./DetailsPanel.jsx";
 import ShareDialog from "./ShareDialog.jsx";
 
 function Homepage({ initialView = "MY_DRIVE" }) {
-  const { files, sharedFiles,loading, refreshFiles } = useFiles();
+  const { files, sharedFiles, loading, selectedFiles, toggleFileSelection, selectAll, selectedFolders, toggleFolderSelection, clearSelection, refreshFiles } = useFiles();
   const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
   const [detailsFile, setDetailsFile] = React.useState(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
@@ -193,6 +195,10 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     setCurrentFolderId(folderId || null);
   }, [folderId]);
 
+  useEffect(() => {
+    clearSelection();
+  }, [currentView, currentFolderId, clearSelection]);
+
   const [breadcrumb, setBreadcrumb] = React.useState([]);
   const [breadcrumbLoading, setBreadcrumbLoading] = React.useState(false);
   const [breadcrumbError, setBreadcrumbError] = React.useState(null);
@@ -332,7 +338,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     navigate(`/folders/${folderId}`);
   };
 
-  
+
 
   const handleRenameFolder = () => {
     if (!selectedFolder) return;
@@ -499,11 +505,11 @@ function Homepage({ initialView = "MY_DRIVE" }) {
   }));
 
   useEffect(() => {
-  if (!selectedFile) return;
+    if (!selectedFile) return;
 
-  const updated = files.find(f => f.id === selectedFile.id);
-  if (updated) setSelectedFile(updated);
-}, [files, selectedFile]);
+    const updated = files.find(f => f.id === selectedFile.id);
+    if (updated) setSelectedFile(updated);
+  }, [files, selectedFile]);
 
   useEffect(() => {
     if (!detailsFile) return;
@@ -617,7 +623,11 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         )}
       </Box>
 
-      <MenuBar visibleFiles={recentFiles} />
+      {selectedFiles.size > 0 || selectedFolders.size > 0 ? (
+        <BatchToolbar />
+      ) : (
+        <MenuBar visibleFiles={recentFiles} />
+      )}
 
       {/* FOLDERS ACCORDION */}
       <Accordion
@@ -703,6 +713,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                       handleFolderOpen(folder.publicId || folder._id)
                     }
                     sx={{
+                      position: "relative",
                       display: "flex",
                       alignItems: "center",
                       gap: 2,
@@ -711,13 +722,34 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                       borderRadius: 3,
                       cursor: "pointer",
                       transition: "all 0.2s ease",
+                      backgroundColor: selectedFolders.has(folder.publicId || folder._id) ? "#e8f0fe" : "#ffffff",
                       "&:hover": {
                         boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
                         transform: "translateY(-2px)",
+                        "& .folder-checkbox": { opacity: 1 },
                       },
                       height: "25%",
                     }}
                   >
+                    <Box
+                      className="folder-checkbox"
+                      onClick={(e) => e.stopPropagation()}
+                      sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        opacity: selectedFolders.has(folder.publicId || folder._id) ? 1 : 0,
+                        transition: "opacity 0.2s",
+                        zIndex: 1,
+                      }}
+                    >
+                      <Checkbox
+                        size="small"
+                        checked={selectedFolders.has(folder.publicId || folder._id)}
+                        onChange={() => toggleFolderSelection(folder.publicId || folder._id)}
+                      />
+                    </Box>
+
                     <FolderIcon sx={{ fontSize: 36, color: "#4285f4" }} />
 
                     <Box sx={{ flex: 1 }}>
@@ -731,8 +763,8 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                         {folder.location === "TRASH"
                           ? "In Trash"
                           : folder.location === "SHARED"
-                          ? "In Shared with me"
-                          : "In My Drive"}
+                            ? "In Shared with me"
+                            : "In My Drive"}
                       </Typography>
                     </Box>
 
@@ -749,139 +781,8 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         </AccordionDetails>
       </Accordion>
 
-    {/* FILES IN CURRENT FOLDER – only in folder view */}
-    {isFolderView && (
-      <Accordion
-        defaultExpanded
-        disableGutters
-        square
-        sx={{
-          backgroundColor: "transparent",
-          boxShadow: "none",
-          "&:before": { display: "none" },
-          mt: 3,
-        }}
-      >
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon sx={{ color: "#5f6368" }} />}
-          sx={{
-            backgroundColor: "#ffffff",
-            borderRadius: "9999px",
-            px: 1.5,
-            py: 0.5,
-            width: "fit-content",
-            transition: "all 0.2s ease",
-            "& .MuiAccordionSummary-content": {
-              marginY: 0,
-              marginLeft: 0.5,
-            },
-            "&:hover": {
-              backgroundColor: "#e8f0fe",
-              "& .MuiTypography-root": { color: "#1a73e8" },
-              "& .MuiSvgIcon-root": { color: "#1a73e8" },
-            },
-          }}
-        >
-          <Typography sx={{ fontWeight: 600, color: "#202124" }}>
-            Files in this folder
-          </Typography>
-        </AccordionSummary>
-
-        <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
-          {filesInCurrentFolder.length === 0 ? (
-            <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
-              This folder has no files yet.
-            </Typography>
-          ) : (
-            <>
-              <Box
-                sx={{
-                  display: "flex",
-                  px: 2,
-                  py: 1,
-                  borderBottom: "1px solid #e0e0e0",
-                  color: "#5f6368",
-                  fontSize: 14,
-                  fontWeight: 500,
-                }}
-              >
-                <Box sx={{ flex: 3 }}>Name</Box>
-                <Box sx={{ flex: 2 }}>Owner</Box>
-                <Box sx={{ flex: 2 }}>Date modified</Box>
-                <Box sx={{ width: 40 }} />
-              </Box>
-
-              {filesInCurrentFolder.map((file) => (
-                <Box
-                  key={file.id}
-                  onContextMenu={(e) => handleContextMenu(e, file)}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    px: 2,
-                    py: 1.5,
-                    borderBottom: "1px solid #f1f3f4",
-                    cursor: "pointer",
-                    "&:hover": { backgroundColor: "#f8f9fa" },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      flex: 3,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                    }}
-                  >
-                    <img
-                      src={file.icon || DEFAULT_FILE_ICON}
-                      alt="file icon"
-                      width={20}
-                      height={20}
-                    />
-                    <Typography sx={{ fontWeight: 500 }}>
-                      {file.name}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {file.owner || "Unknown"}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {formatDate(file.lastAccessedAt || file.uploadedAt)}
-                    </Typography>
-                  </Box>
-
-                  <Box
-                    sx={{
-                      width: 40,
-                      display: "flex",
-                      justifyContent: "flex-end",
-                    }}
-                  >
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuButtonClick(e, file)}
-                    >
-                      <MoreVertIcon sx={{ color: "#5f6368" }} />
-                    </IconButton>
-                  </Box>
-                </Box>
-              ))}
-            </>
-          )}
-        </AccordionDetails>
-      </Accordion>
-    )}
-
-        
-
-      {/* SUGGESTED FILES ACCORDION – ONLY ON MY DRIVE ROOT */}
-      {isMyDriveRoot && (
+      {/* FILES IN CURRENT FOLDER – only in folder view */}
+      {isFolderView && (
         <Accordion
           defaultExpanded
           disableGutters
@@ -914,68 +815,250 @@ function Homepage({ initialView = "MY_DRIVE" }) {
             }}
           >
             <Typography sx={{ fontWeight: 600, color: "#202124" }}>
-              Suggested files
+              Files in this folder
             </Typography>
           </AccordionSummary>
 
           <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-              <IconButton
-                size="small"
-                onClick={() => setViewMode("list")}
-                sx={{
-                  color: viewMode === "list" ? "#1a73e8" : "#5f6368",
-                }}
-              >
-                <ListIcon />
-              </IconButton>
-
-              <IconButton
-                size="small"
-                onClick={() => setViewMode("grid")}
-                sx={{
-                  color: viewMode === "grid" ? "#1a73e8" : "#5f6368",
-                }}
-              >
-                <GridViewIcon />
-              </IconButton>
-            </Box>
-
-            {viewMode === "list" ? (
+            {filesInCurrentFolder.length === 0 ? (
+              <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                This folder has no files yet.
+              </Typography>
+            ) : (
               <>
                 <Box
                   sx={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
                     px: 2,
                     py: 1,
                     borderBottom: "1px solid #e0e0e0",
                     color: "#5f6368",
                     fontSize: 14,
                     fontWeight: 500,
+                    alignItems: "center",
                   }}
                 >
+                  <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
+                    <Checkbox
+                      size="small"
+                      checked={
+                        filesInCurrentFolder.length > 0 &&
+                        filesInCurrentFolder.every((f) => selectedFiles.has(f.id))
+                      }
+                      indeterminate={
+                        filesInCurrentFolder.some((f) => selectedFiles.has(f.id)) &&
+                        !filesInCurrentFolder.every((f) => selectedFiles.has(f.id))
+                      }
+                      onChange={() => {
+                        const allSelected = filesInCurrentFolder.every((f) =>
+                          selectedFiles.has(f.id)
+                        );
+                        if (allSelected) {
+                          filesInCurrentFolder.forEach((f) => {
+                            if (selectedFiles.has(f.id)) toggleFileSelection(f.id);
+                          });
+                        } else {
+                          filesInCurrentFolder.forEach((f) => {
+                            if (!selectedFiles.has(f.id)) toggleFileSelection(f.id);
+                          });
+                        }
+                      }}
+                    />
+                  </Box>
                   <Box sx={{ flex: 3 }}>Name</Box>
-                  <Box sx={{ flex: 2 }}>Reason suggested</Box>
                   <Box sx={{ flex: 2 }}>Owner</Box>
-                  <Box sx={{ flex: 2 }}>Location</Box>
-                  <Box sx={{ width: 40 }}></Box>
+                  <Box sx={{ flex: 2 }}>Date modified</Box>
+                  <Box sx={{ width: 40 }} />
                 </Box>
 
-                {suggestedFiles.length === 0 ? (
-                  <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
-                    No files match the current filters.
-                  </Typography>
-                ) : (
-                  suggestedFiles.map((file, index) => (
+                {filesInCurrentFolder.map((file) => (
+                  <Box
+                    key={file.id}
+                    onContextMenu={(e) => handleContextMenu(e, file)}
+                    onClick={(e) => {
+                      // Optional: handle row click
+                    }}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      px: 2,
+                      py: 1.5,
+                      borderBottom: "1px solid #f1f3f4",
+                      cursor: "pointer",
+                      backgroundColor: selectedFiles.has(file.id) ? "#e8f0fe" : "transparent",
+                      "&:hover": {
+                        backgroundColor: selectedFiles.has(file.id) ? "#e8f0fe" : "#f8f9fa",
+                        "& .file-checkbox": { opacity: 1 },
+                      },
+                    }}
+                  >
                     <Box
-                      key={index}
+                      sx={{
+                        width: 40,
+                        display: "flex",
+                        justifyContent: "center",
+                        opacity: selectedFiles.has(file.id) ? 1 : 0,
+                        transition: "opacity 0.2s",
+                      }}
+                      className="file-checkbox"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        size="small"
+                        checked={selectedFiles.has(file.id)}
+                        onChange={() => toggleFileSelection(file.id)}
+                      />
+                    </Box>
+
+                    <Box
+                      sx={{
+                        flex: 3,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                      }}
+                    >
+                      <img
+                        src={file.icon || DEFAULT_FILE_ICON}
+                        alt="file icon"
+                        width={20}
+                        height={20}
+                      />
+                      <Typography sx={{ fontWeight: 500 }}>
+                        {file.name}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ flex: 2 }}>
+                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                        {file.owner || "Unknown"}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ flex: 2 }}>
+                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                        {formatDate(file.lastAccessedAt || file.uploadedAt)}
+                      </Typography>
+                    </Box>
+
+                    <Box
+                      sx={{
+                        width: 40,
+                        display: "flex",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuButtonClick(e, file)}
+                      >
+                        <MoreVertIcon sx={{ color: "#5f6368" }} />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                ))}
+              </>
+            )}
+
+
+          </AccordionDetails>
+        </Accordion >
+      )
+      }
+
+
+
+      {/* SUGGESTED FILES ACCORDION – ONLY ON MY DRIVE ROOT */}
+      {
+        isMyDriveRoot && (
+          <Accordion
+            defaultExpanded
+            disableGutters
+            square
+            sx={{
+              backgroundColor: "transparent",
+              boxShadow: "none",
+              "&:before": { display: "none" },
+              mt: 3,
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon sx={{ color: "#5f6368" }} />}
+              sx={{
+                backgroundColor: "#ffffff",
+                borderRadius: "9999px",
+                px: 1.5,
+                py: 0.5,
+                width: "fit-content",
+                transition: "all 0.2s ease",
+                "& .MuiAccordionSummary-content": {
+                  marginY: 0,
+                  marginLeft: 0.5,
+                },
+                "&:hover": {
+                  backgroundColor: "#e8f0fe",
+                  "& .MuiTypography-root": { color: "#1a73e8" },
+                  "& .MuiSvgIcon-root": { color: "#1a73e8" },
+                },
+              }}
+            >
+              <Typography sx={{ fontWeight: 600, color: "#202124" }}>
+                Suggested files
+              </Typography>
+            </AccordionSummary>
+
+            <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
+              <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => setViewMode("list")}
+                  sx={{
+                    color: viewMode === "list" ? "#1a73e8" : "#5f6368",
+                  }}
+                >
+                  <ListIcon />
+                </IconButton>
+
+                <IconButton
+                  size="small"
+                  onClick={() => setViewMode("grid")}
+                  sx={{
+                    color: viewMode === "grid" ? "#1a73e8" : "#5f6368",
+                  }}
+                >
+                  <GridViewIcon />
+                </IconButton>
+              </Box>
+
+              {viewMode === "list" ? (
+                <>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      px: 2,
+                      py: 1,
+                      borderBottom: "1px solid #e0e0e0",
+                      color: "#5f6368",
+                      fontSize: 14,
+                      fontWeight: 500,
+                    }}
+                  >
+                    <Box sx={{ flex: 3 }}>Name</Box>
+                    <Box sx={{ flex: 2 }}>Reason suggested</Box>
+                    <Box sx={{ flex: 2 }}>Owner</Box>
+                    <Box sx={{ flex: 2 }}>Location</Box>
+                    <Box sx={{ width: 40 }}></Box>
+                  </Box>
+
+                  {suggestedFiles.map((file) => (
+                    <Box
+                      key={file.id}
                       onContextMenu={(e) => handleContextMenu(e, file)}
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "space-between",
                         px: 2,
                         py: 1.5,
                         borderBottom: "1px solid #f1f3f4",
@@ -985,9 +1068,9 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                     >
                       <Box
                         sx={{
+                          flex: 3,
                           display: "flex",
                           alignItems: "center",
-                          flex: 3,
                           gap: 1.5,
                         }}
                       >
@@ -1038,97 +1121,99 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                       </Box>
                     </Box>
                   ))
-                )}
-              </>
-            ) : (
-              <Grid container spacing={2} sx={{ px: 2, py: 1 }}>
-                {suggestedFiles.length === 0 ? (
-                  <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
-                    No files match the current filters.
-                  </Typography>
-                ) : (
-                  suggestedFiles.map((file, index) => (
-                    <Grid item xs={12} sm={6} md={3} lg={2} key={index}>
-                      <Paper
-                        elevation={0}
-                        onContextMenu={(e) => handleContextMenu(e, file)}
-                        sx={{
-                          position: "relative",
-                          border: "1px solid #e0e0e0",
-                          borderRadius: 2,
-                          overflow: "hidden",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                          "&:hover": {
-                            boxShadow: "0 1px 4px rgba(0, 0, 0, 0.15)",
-                            transform: "translateY(-2px)",
-                          },
-                        }}
-                      >
-                        <IconButton
-                          size="small"
+                  }
+                </>
+              ) : (
+                <Grid container spacing={2} sx={{ px: 2, py: 1 }}>
+                  {suggestedFiles.length === 0 ? (
+                    <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                      No files match the current filters.
+                    </Typography>
+                  ) : (
+                    suggestedFiles.map((file, index) => (
+                      <Grid item xs={12} sm={6} md={3} lg={2} key={index}>
+                        <Paper
+                          elevation={0}
+                          onContextMenu={(e) => handleContextMenu(e, file)}
                           sx={{
-                            position: "absolute",
-                            top: 4,
-                            right: 4,
-                          }}
-                          onClick={(e) => handleMenuButtonClick(e, file)}
-                        >
-                          <MoreVertIcon sx={{ color: "#5f6368" }} />
-                        </IconButton>
-
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            height: 120,
-                            backgroundColor: "#f8f9fa",
+                            position: "relative",
+                            border: "1px solid #e0e0e0",
+                            borderRadius: 2,
+                            overflow: "hidden",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              boxShadow: "0 1px 4px rgba(0, 0, 0, 0.15)",
+                              transform: "translateY(-2px)",
+                            },
                           }}
                         >
-                          <img
-                            src={file.icon}
-                            alt="file icon"
-                            width={40}
-                            height={40}
-                          />
-                        </Box>
+                          <IconButton
+                            size="small"
+                            sx={{
+                              position: "absolute",
+                              top: 4,
+                              right: 4,
+                            }}
+                            onClick={(e) => handleMenuButtonClick(e, file)}
+                          >
+                            <MoreVertIcon sx={{ color: "#5f6368" }} />
+                          </IconButton>
 
-                        <Box sx={{ p: 1.5 }}>
-                          <Typography
+                          <Box
                             sx={{
-                              fontWeight: 500,
-                              fontSize: 14,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              height: 120,
+                              backgroundColor: "#f8f9fa",
                             }}
                           >
-                            {file.name}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: "#5f6368",
-                              fontSize: 12,
-                              mt: 0.5,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {file.owner}
-                          </Typography>
-                        </Box>
-                      </Paper>
-                    </Grid>
-                  ))
-                )}
-              </Grid>
-            )}
-          </AccordionDetails>
-        </Accordion>
-      )}
+                            <img
+                              src={file.icon}
+                              alt="file icon"
+                              width={40}
+                              height={40}
+                            />
+                          </Box>
+
+                          <Box sx={{ p: 1.5 }}>
+                            <Typography
+                              sx={{
+                                fontWeight: 500,
+                                fontSize: 14,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {file.name}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: "#5f6368",
+                                fontSize: 12,
+                                mt: 0.5,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {file.owner}
+                            </Typography>
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    ))
+                  )}
+                </Grid>
+              )
+              }
+            </AccordionDetails >
+          </Accordion >
+        )
+      }
 
       <FileKebabMenu
         anchorEl={folderMenuAnchor}
@@ -1175,13 +1260,13 @@ function Homepage({ initialView = "MY_DRIVE" }) {
       />
 
       <ShareDialog
-      open={shareDialogOpen}
-      file={fileToShare}
-      onClose={() => {
-        setShareDialogOpen(false);
-        setFileToShare(null);
-      }}
-    />
+        open={shareDialogOpen}
+        file={fileToShare}
+        onClose={() => {
+          setShareDialogOpen(false);
+          setFileToShare(null);
+        }}
+      />
 
 
 
@@ -1202,6 +1287,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         }}
         onSubmit={handleFolderRenameSubmit}
       />
+    </Box >
 
       <RenameDialog
         open={copyDialogOpen}

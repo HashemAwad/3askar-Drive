@@ -121,18 +121,19 @@ require("./config/passport")(passport);
 
 // MongoDB connection
 mongoose
-.connect(process.env.MONGODB_URI)
-.then(() => console.log("✅ Connected to MongoDB Atlas"))
-.catch((err) => console.log("❌ MongoDB connection error:", err));
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("✅ Connected to MongoDB Atlas"))
+  .catch((err) => console.log("❌ MongoDB connection error:", err));
 
 
 const ensureAuth = require('./middleware/auth');
 
 // Routes
 app.use("/auth", require("./routes/auth"));
-app.use("/user", ensureAuth ,require("./routes/user"));
-app.use("/files", ensureAuth ,require("./routes/files"));
+app.use("/user", ensureAuth, require("./routes/user"));
+app.use("/files", ensureAuth, require("./routes/files"));
 app.use("/folders", require("./routes/folders"));
+app.use("/batch", ensureAuth, require("./routes/batch"));
 
 app.get("/", (req, res) => res.send("Mini Drive Backend Running ✅"));
 

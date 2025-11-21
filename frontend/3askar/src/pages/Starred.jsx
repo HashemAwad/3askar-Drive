@@ -1,10 +1,13 @@
 import React from "react";
-import { Box, Typography, IconButton, Menu, MenuItem } from "@mui/material";
+import { Box, Typography, IconButton, Menu, MenuItem, Checkbox } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import StarIcon from "@mui/icons-material/Star";
 import MenuBar from "../components/MenuBar";
+import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
 import FileKebabMenu from "../components/FileKebabMenu.jsx";
+import { isFolder } from "../utils/fileHelpers";
+import { getRowStyles } from "../styles/selectionTheme";
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -14,7 +17,18 @@ const formatDate = (value) => {
 };
 
 function Starred() {
-  const { filteredFiles, filterBySource, loading, error } = useFiles();
+  const {
+    filteredFiles,
+    filterBySource,
+    loading,
+    error,
+    selectedFiles,
+    selectedFolders,
+    toggleFileSelection,
+    toggleFolderSelection,
+    clearSelection,
+    selectAll,
+  } = useFiles();
 
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
@@ -54,6 +68,10 @@ function Starred() {
     setSelectedFile(null);
   };
 
+  React.useEffect(() => {
+    clearSelection();
+  }, [clearSelection]);
+
 
   const starredFiles = React.useMemo(
     () => filterBySource(undefined, "starred"),
@@ -77,6 +95,35 @@ function Starred() {
     });
   }, [starredFiles, sortField, sortDirection]);
 
+  const selectedCount = React.useMemo(
+    () => sortedFiles.reduce((acc, f) => {
+      const isFolderItem = isFolder(f);
+      const set = isFolderItem ? selectedFolders : selectedFiles;
+      return set.has(f.id) ? acc + 1 : acc;
+    }, 0),
+    [sortedFiles, selectedFiles, selectedFolders]
+  );
+  const allSelected = selectedCount > 0 && selectedCount === sortedFiles.length;
+  const someSelected = selectedCount > 0 && selectedCount < sortedFiles.length;
+
+  const handleHeaderToggle = () => {
+    if (allSelected) {
+      clearSelection();
+    } else {
+      selectAll(sortedFiles);
+    }
+  };
+
+  const isItemSelected = (file) => {
+    const isFolderItem = isFolder(file);
+    return (isFolderItem ? selectedFolders : selectedFiles).has(file.id);
+  };
+
+  const toggleSelectionFor = (file) => {
+    const isFolderItem = isFolder(file);
+    if (isFolderItem) toggleFolderSelection(file.id); else toggleFileSelection(file.id);
+  };
+
   const handleOpenMenu = (event) => setMenuEl(event.currentTarget);
   const handleCloseMenu = () => setMenuEl(null);
 
@@ -91,7 +138,7 @@ function Starred() {
 
   const renderSortIndicator = (field) => {
     if (sortField !== field) return "";
-    return sortDirection === "asc" ? " ↑" : " ↓";
+    return sortDirection === "asc" ? " ^" : " v";
   };
 
   if (loading) {
@@ -123,11 +170,12 @@ function Starred() {
         Starred
       </Typography>
 
-      <MenuBar visibleFiles={sortedFiles} />
+      {selectedCount > 0 ? <BatchToolbar visibleItems={sortedFiles} /> : <MenuBar visibleFiles={sortedFiles} />}
 
       <Box
         sx={{
           display: "flex",
+          alignItems: "center",
           px: 2,
           py: 1,
           mt: 2,
@@ -138,6 +186,14 @@ function Starred() {
           cursor: "pointer",
         }}
       >
+        <Box sx={{ width: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Checkbox
+            size="small"
+            indeterminate={someSelected && !allSelected}
+            checked={allSelected}
+            onChange={handleHeaderToggle}
+          />
+        </Box>
         <Box sx={{ flex: 4 }} onClick={() => handleSort("name")}>
           Name{renderSortIndicator("name")}
         </Box>
@@ -153,21 +209,30 @@ function Starred() {
         <Box sx={{ width: 40 }} />
       </Box>
 
-      {sortedFiles.map((file) => (
-        <Box
-          key={file.id}
-          onContextMenu={(e) => handleContextMenu(e, file)}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            px: 2,
-            py: 1.5,
-            borderBottom: "1px solid #f1f3f4",
-            "&:hover": { backgroundColor: "#f8f9fa" },
-          }}
-        >
-          <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
-            <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />
+      {sortedFiles.map((file) => {
+        const selected = isItemSelected(file);
+        return (
+          <Box
+            key={file.id}
+            onContextMenu={(e) => handleContextMenu(e, file)}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              px: 2,
+              py: 1.5,
+              borderBottom: "1px solid #f1f3f4",
+              ...getRowStyles(selected),
+            }}
+          >
+            <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
+              <Checkbox
+                size="small"
+                checked={selected}
+                onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
+              />
+            </Box>
+            <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+              <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />
             <img src={file.icon} width={20} height={20} alt="file icon" />
             {file.name}
           </Box>
@@ -185,7 +250,8 @@ function Starred() {
           </IconButton>
 
         </Box>
-      ))}
+        );
+      })}
      
       <FileKebabMenu
         anchorEl={menuAnchorEl}
@@ -199,3 +265,5 @@ function Starred() {
 }
 
 export default Starred;
+
+
