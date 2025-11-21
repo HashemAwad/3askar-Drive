@@ -1,16 +1,19 @@
-import React from "react";
-import { Box, Typography, IconButton, Menu, MenuItem } from "@mui/material";
+﻿import React from "react";
+import { Box, Typography, IconButton, Menu, MenuItem, Checkbox } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import MenuBar from "../components/MenuBar";
+import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
+import { isFolder } from "../utils/fileHelpers";
+import { getRowStyles } from "../styles/selectionTheme";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
 
 const formatDate = (value) => {
-  if (!value) return "—";
+  if (!value) return "N/A";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "—";
+  if (Number.isNaN(parsed.getTime())) return "N/A";
   return parsed.toLocaleDateString();
 };
 
@@ -37,6 +40,12 @@ function Bin() {
     restoreFromBin,
     deleteForever,
     filterBySource,
+    selectedFiles,
+    selectedFolders,
+    toggleFileSelection,
+    toggleFolderSelection,
+    clearSelection,
+    selectAll,
   } = useFiles();
 
   const [sortField, setSortField] = React.useState("name");
@@ -77,6 +86,35 @@ function Bin() {
     return data;
   }, [deletedFiles, sortField, sortDirection]);
 
+  const selectedCount = React.useMemo(
+    () => sortedFiles.reduce((acc, f) => {
+      const isFolderItem = isFolder(f);
+      const set = isFolderItem ? selectedFolders : selectedFiles;
+      return set.has(f.id) ? acc + 1 : acc;
+    }, 0),
+    [sortedFiles, selectedFiles, selectedFolders]
+  );
+  const allSelected = selectedCount > 0 && selectedCount === sortedFiles.length;
+  const someSelected = selectedCount > 0 && selectedCount < sortedFiles.length;
+
+  const handleHeaderToggle = () => {
+    if (allSelected) {
+      clearSelection();
+    } else {
+      selectAll(sortedFiles);
+    }
+  };
+
+  const isItemSelected = (file) => {
+    const isFolderItem = isFolder(file);
+    return (isFolderItem ? selectedFolders : selectedFiles).has(file.id);
+  };
+
+  const toggleSelectionFor = (file) => {
+    const isFolderItem = isFolder(file);
+    if (isFolderItem) toggleFolderSelection(file.id); else toggleFileSelection(file.id);
+  };
+
   const handleOpenMenu = (event, file) => {
     setMenuEl(event.currentTarget);
     setActiveFile(file);
@@ -86,6 +124,10 @@ function Bin() {
     setMenuEl(null);
     setActiveFile(null);
   };
+
+  React.useEffect(() => {
+    clearSelection();
+  }, [clearSelection]);
 
   const handleRestore = () => {
     if (activeFile) {
@@ -112,7 +154,7 @@ function Bin() {
 
   const renderSortIndicator = (field) => {
     if (sortField !== field) return "";
-    return sortDirection === "asc" ? " ↑" : " ↓";
+    return sortDirection === "asc" ? " ^" : " v";
   };
 
   if (loading) {
@@ -144,11 +186,12 @@ function Bin() {
         Trash
       </Typography>
 
-      <MenuBar visibleFiles={sortedFiles} />
+      {selectedCount > 0 ? <BatchToolbar toolbarSource="trash" visibleItems={sortedFiles} /> : <MenuBar visibleFiles={sortedFiles} />}
 
       <Box
         sx={{
           display: "flex",
+          alignItems: "center",
           px: 2,
           py: 1,
           mt: 2,
@@ -159,6 +202,14 @@ function Bin() {
           cursor: "pointer",
         }}
       >
+        <Box sx={{ width: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Checkbox
+            size="small"
+            indeterminate={someSelected && !allSelected}
+            checked={allSelected}
+            onChange={handleHeaderToggle}
+          />
+        </Box>
         <Box sx={{ flex: 4 }} onClick={() => handleSort("name")}>
           Name{renderSortIndicator("name")}
         </Box>
@@ -183,26 +234,35 @@ function Bin() {
           Bin is empty.
         </Typography>
       ) : (
-        sortedFiles.map((file) => (
-          <Box
-            key={file.id}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              px: 2,
-              py: 1.5,
-              borderBottom: "1px solid #f1f3f4",
-              "&:hover": { backgroundColor: "#f8f9fa" },
-            }}
-          >
+        sortedFiles.map((file) => {
+          const selected = isItemSelected(file);
+          return (
             <Box
+              key={file.id}
               sx={{
-                flex: 4,
                 display: "flex",
                 alignItems: "center",
-                gap: 1.5,
+                px: 2,
+                py: 1.5,
+                borderBottom: "1px solid #f1f3f4",
+                ...getRowStyles(selected),
               }}
             >
+              <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
+                <Checkbox
+                  size="small"
+                  checked={selected}
+                  onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
+                />
+              </Box>
+              <Box
+                sx={{
+                  flex: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                }}
+              >
               <img
                 src={file.icon || DEFAULT_FILE_ICON}
                 width={20}
@@ -230,7 +290,8 @@ function Bin() {
               <MoreVertIcon sx={{ color: "#5f6368" }} />
             </IconButton>
           </Box>
-        ))
+          );
+        })
       )}
 
       <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={handleCloseMenu}>
@@ -242,3 +303,9 @@ function Bin() {
 }
 
 export default Bin;
+
+
+
+
+
+

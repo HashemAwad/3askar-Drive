@@ -61,12 +61,27 @@ const buildUrl = (path) => { // checks if the request URL is correct
 
 async function request(path, options = {}) {
   const {
-    method = "GET", //default HTTP method is Get
+    method = "GET", // default HTTP method
     body,
     headers,
-    credentials = "include", //include cookies, for auth
-    ...rest //any other thing, add it into a new object called rest
+    credentials = "include", // include cookies for auth
+    params, // optional query parameters (plain object)
+    ...rest
   } = options;
+
+  // Minimal query serialization (only if params is a plain object with keys)
+  if (params && typeof params === "object" && !Array.isArray(params)) {
+    const entries = Object.entries(params)
+      .filter(([_, v]) => v !== undefined && v !== null && v !== "");
+    if (entries.length) {
+      const qs = entries
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join("&");
+      if (qs) {
+        path += path.includes("?") ? `&${qs}` : `?${qs}`;
+      }
+    }
+  }
 
   const finalHeaders = new Headers(headers || {}); // if user game custom headers, use. if not, use empty {}, turn them into Header object that fetch understands 
   let preparedBody = body; //decides how to send the data
