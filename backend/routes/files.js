@@ -1,4 +1,4 @@
-// Helper to check GridFS readiness
+﻿// Helper to check GridFS readiness
 function ensureGridFSReady(res) {
     if (!gridfsBucket) {
         res.status(503).json({ message: "GridFS Bucket not initialized" });
@@ -24,7 +24,23 @@ const Folder = require("../models/Folder");
 const OWNER_FIELDS = "name email picture";
 const SHARED_WITH_POPULATE = { path: "sharedWith.user", select: OWNER_FIELDS };
 
-let gridfsBucket;
+async function findFolderByAnyId(id) {
+  if (!id) return null;
+
+  // Try publicId first
+  let folder = await Folder.findOne({ publicId: id });
+  if (folder) return folder;
+
+  // Fallback: try Mongo ObjectId
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    folder = await Folder.findById(id);
+  }
+
+  return folder;
+}
+
+
+let gridfsBucket; 
 // once mongoose connection is open, initialize GridFS bucket to make sure it's ready before handling requests
 mongoose.connection.once("open", () => {
     gridfsBucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
@@ -51,7 +67,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
     if (!ensureGridFSReady(res)) return;
     try {
-        if (!req.user) {
+        if (!req.user){
             return res.status(401).json({ message: "Not authenticated" });
         }
         if (!req.file) {
@@ -101,7 +117,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         });
         uploadStream.on("error", (err) => {
             console.error("Error uploading file to GridFS:", err);
-            res.status(500).json({ message: "Upload failed" });
+            res.status(500).json({ message: "Upload failed"});
         });
         readStream.pipe(uploadStream);
     } catch (err) {
@@ -129,7 +145,7 @@ router.get("/:id/download", async (req, res) => {
             return res.status(400).json({ message: "Invalid file ID format" });
         }
 
-        const files = await gridfsBucket.find({ _id: objectId }).toArray();
+        const files = await gridfsBucket.find({ _id: objectId }).toArray();    
         if (!files || files.length === 0) {
             return res.status(404).json({ message: "File not found" });
         }
@@ -146,12 +162,12 @@ router.get("/:id/download", async (req, res) => {
         const readStream = gridfsBucket.openDownloadStream(objectId);
         res.set({
             "Content-Type": file.contentType,
-            "Content-Disposition": `attachment; filename="${file.filename}"`,
+            "Content-Disposition": `attachment; filename="${file.filename}"`,    
         });
         readStream.pipe(res); //stream the file back to client
 
         readStream.on("error", (err) => {
-            console.error("Error streaming file back to client.", err);
+            console.error("Error streaming file back to client.", err); 
             res.status(500).json({ message: "Error reading file" });
         });
 
@@ -169,48 +185,48 @@ router.get("/:id/download", async (req, res) => {
 //4. delete file form gridfs and return message
 //_______________________________
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", async (req, res) =>{
     if (!ensureGridFSReady(res)) return;
-    try {
+    try{
         // req.user = { _id: new ObjectId() }; // TEMPORARY for Postman
-        // console.log("âž¡ï¸ DELETE ROUTE REACHED");
+        // console.log("âž¡ï¸ DELETE ROUTE REACHED");
         // console.log("fileId =", req.params.id);
         // console.log("req.user =", req.user);
         // console.log("gridfsBucket =", gridfsBucket);
 
         const fileId = req.params.id;
-        let objectId;
-        try {
+        let objectId; 
+        try{
             // req.user = { _id: new ObjectId("676f2ac5308f1a22222a1ce4") }; //temp for postman
             objectId = new ObjectId(fileId);
-        } catch (err) {
+        }catch(err){
             return res.status(400).json({ message: "Invalid file ID format" });
         }
 
-        const files = await gridfsBucket.find({ _id: objectId }).toArray();
+        const files = await gridfsBucket.find({_id: objectId}).toArray(); 
         console.log("files =", files);
-
-        if (!files || files.length === 0) {
+        
+        if(!files || files.length === 0 ){
             return res.status(404).json({ message: "File not found" });
         }
 
-        const file = files[0];
+        const file = files[0];  
         console.log("Deleting file length:", file.length);
         console.log("File _id:", file._id);
 
 
         await updateStorage(req.user._id, file.length, "remove");
         gridfsBucket.delete(objectId, (err) => {
-            if (err) {
+            if(err){
                 console.error("Error deleting file.");
-                res.status(500).json({ message: "File deletion error" });
-            } else {
-                res.status(200).json({ message: "File deleted successfully." });
+                res.status(500).json({message: "File deletion error" });
+             }else{
+                 res.status(200).json({ message: "File deleted successfully."}); 
             }
         });
+        
 
-
-    } catch (err) {
+    }catch(err){
         console.error("Error in /files/:id", err);
         res.status(500).json({ message: "Server error during file deletion" });
     }
@@ -230,7 +246,7 @@ router.post("/saveMetadata", async (req, res) => {
         console.log("âž¡ï¸ /files/saveMetadata route reached"); //debugging
         // req.user  ={_id: new ObjectId() }; // TEMPORARY for Postman
 
-        if (!req.user) {
+        if (!req.user){
             return res.status(401).json({ message: "Not authenticated" });
         }
 
@@ -250,14 +266,14 @@ router.post("/saveMetadata", async (req, res) => {
         } = req.body;
 
         //1. validate required fields
-        if (!gridFsId || !originalName || !filename || !size) {
+        if(!gridFsId || !originalName || !filename || !size){
             return res.status(400).json({ message: "Missing required fields" });
         }
 
         //2. check gridfs file exists
-        const objectId = new ObjectId(gridFsId);
-        const files = await gridfsBucket.find({ _id: objectId }).toArray();
-        if (!files || files.length === 0) {
+        const objectId = new ObjectId(gridFsId); 
+        const files = await gridfsBucket.find({_id: objectId}).toArray();
+        if(!files || files.length === 0 ){
             return res.status(404).json({ message: "File not found in GridFS" });
 
         }
@@ -296,14 +312,14 @@ router.post("/saveMetadata", async (req, res) => {
             { path: "owner", select: OWNER_FIELDS },
             SHARED_WITH_POPULATE,
         ]);
-
+        
         // Step 5: Respond
         res.status(201).json({
             message: "Metadata saved",
             file: populatedFile
         });
-
-    } catch (err) {
+        
+    }catch(err){
         console.error("Error in saveMetadata:", err);
         res.status(500).json({ message: "Server error during metadata save" });
     }
@@ -330,9 +346,9 @@ router.get("/", async (req, res) => {
             owner: req.user._id,
             isDeleted: false,
         })
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE)
-            .sort({ uploadDate: -1 }); // newest first (descending)
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE)
+        .sort({ uploadDate: -1 }); // newest first (descending)
 
         res.json(files);
     } catch (err) {
@@ -350,26 +366,13 @@ router.patch("/:id/rename", async (req, res) => {
         if (!req.user) return res.status(401).json({ message: "Not authenticated" });
         if (!newName) return res.status(400).json({ message: "Missing newName" });
 
-        // Find file by ID first
-        const file = await File.findOne({ _id: req.params.id, isDeleted: false });
-        if (!file) return res.status(404).json({ message: "File not found" });
-
-        // Check permissions: Owner OR Shared with "write"
-        const isOwner = file.owner.toString() === req.user._id.toString();
-        const sharedEntry = file.sharedWith.find(
-            (s) => s.user.toString() === req.user._id.toString()
-        );
-        const hasWrite = sharedEntry && sharedEntry.permission === "write";
-
-        if (!isOwner && !hasWrite) {
-            return res.status(403).json({ message: "Permission denied" });
-        }
-
-        file.filename = newName;
-        const updated = await file.save();
-
-        await updated.populate("owner", OWNER_FIELDS);
-        await updated.populate(SHARED_WITH_POPULATE);
+        const updated = await File.findOneAndUpdate(
+            { _id: req.params.id, owner: req.user._id },
+            { $set: { filename: newName } },
+            { new: true }
+        )
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -446,7 +449,7 @@ router.post("/:id/copy", async (req, res) => {
         const populatedCopy = await savedCopy.populate([
             { path: "owner", select: OWNER_FIELDS },
             SHARED_WITH_POPULATE,
-        ]);
+        ]); 
 
         res.status(201).json({ message: "File copied", file: populatedCopy });
 
@@ -469,8 +472,8 @@ router.patch("/:id/star", async (req, res) => {
             { $set: { isStarred: !!isStarred } },
             { new: true }
         )
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE);
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -495,8 +498,8 @@ router.patch("/:id/trash", async (req, res) => { // put path to bin
             { $set: { isDeleted: !!isDeleted } },
             { new: true }
         )
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE);
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -526,8 +529,8 @@ router.patch("/:id/move", async (req, res) => {
             },
             { new: true }
         )
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE);
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -586,7 +589,7 @@ router.delete("/:id/permanent", async (req, res) => {
         res.status(500).json({ message: "Server error deleting file permanently" });
     }
 });
-
+ 
 //LIST FILES 
 
 //get My Drive files (folderId = null and not deleted)
@@ -598,9 +601,9 @@ router.get("/list/mydrive", async (req, res) => {
             isDeleted: false,
             folderId: null
         })
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE)
-            .sort({ filename: 1 });
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE)
+        .sort({ filename: 1 });
 
         res.json(files);
     } catch (err) {
@@ -611,20 +614,20 @@ router.get("/list/mydrive", async (req, res) => {
 
 //Get folder contents
 router.get("/list/folder/:folderId", async (req, res) => {
-    if (!ensureGridFSReady(res)) return;
-    try {
-        const files = await File.find({
-            owner: req.user._id,
-            isDeleted: false,
-            folderId: req.params.folderId
-        })
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE);
+  if (!ensureGridFSReady(res)) return;
+  try {
+    const { folderId } = req.params;
 
-        res.json(files);
-    } catch (err) {
-        console.error("Error getting folder files:", err);
-        res.status(500).json({ message: "Error fetching files" });
+    let folderObjectId = null;
+
+    if (mongoose.Types.ObjectId.isValid(folderId)) {
+      folderObjectId = new ObjectId(folderId);
+    } else {
+      const folderDoc = await Folder.findOne({ publicId: folderId });
+      if (!folderDoc) {
+        return res.status(404).json({ message: "Folder not found" });
+      }
+      folderObjectId = folderDoc._id;
     }
 
     const files = await File.find({
@@ -656,8 +659,8 @@ router.get("/list/starred", async (req, res) => {
             isDeleted: false,
             isStarred: true
         })
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE);
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         res.json(files);
     } catch (err) {
@@ -674,8 +677,8 @@ router.get("/list/trash", async (req, res) => {
             owner: req.user._id,
             isDeleted: true
         })
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE);
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         res.json(files);
     } catch (err) {
@@ -685,17 +688,17 @@ router.get("/list/trash", async (req, res) => {
 });
 
 //Get recent files
-router.get("/list/recent", async (req, res) => {
+router.get("/list/recent", async (req, res) => { 
     if (!ensureGridFSReady(res)) return;
     try {
         const files = await File.find({
             owner: req.user._id,
             isDeleted: false
         })
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE)
-            .sort({ lastAccessed: -1 })
-            .limit(20); //check if its for all 
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE)
+        .sort({ lastAccessed: -1 })
+        .limit(20); //check if its for all 
 
         res.json(files);
     } catch (err) {
@@ -714,19 +717,8 @@ router.patch("/:id/share", async (req, res) => {
         if (!["read", "write"].includes(permission)) //TODO IF YOU CHANGE OT BOOLEAN
             return res.status(400).json({ message: "Invalid permission" });
 
-        const file = await File.findOne({ _id: req.params.id });
+        const file = await File.findOne({ _id: req.params.id, owner: req.user._id });
         if (!file) return res.status(404).json({ message: "File not found" });
-
-        // Check permissions: Owner OR Shared with "write"
-        const isOwner = file.owner.toString() === req.user._id.toString();
-        const sharedEntry = file.sharedWith.find(
-            (s) => s.user.toString() === req.user._id.toString()
-        );
-        const hasWrite = sharedEntry && sharedEntry.permission === "write";
-
-        if (!isOwner && !hasWrite) {
-            return res.status(403).json({ message: "Permission denied" });
-        }
 
         const existing = file.sharedWith.find(x => x.user.toString() === userId);
 
@@ -757,19 +749,8 @@ router.patch("/:id/unshare", async (req, res) => {
         if (!req.user) return res.status(401).json({ message: "Not authenticated" });
         if (!userId) return res.status(400).json({ message: "Missing userId" });
 
-        const file = await File.findOne({ _id: req.params.id });
+        const file = await File.findOne({ _id: req.params.id, owner: req.user._id });
         if (!file) return res.status(404).json({ message: "File not found" });
-
-        // Check permissions: Owner OR Shared with "write"
-        const isOwner = file.owner.toString() === req.user._id.toString();
-        const sharedEntry = file.sharedWith.find(
-            (s) => s.user.toString() === req.user._id.toString()
-        );
-        const hasWrite = sharedEntry && sharedEntry.permission === "write";
-
-        if (!isOwner && !hasWrite) {
-            return res.status(403).json({ message: "Permission denied" });
-        }
 
         file.sharedWith = file.sharedWith.filter(x => x.user.toString() !== userId);
         await file.save();
@@ -796,19 +777,8 @@ router.patch("/:id/permission", async (req, res) => {
         if (!["read", "write"].includes(permission))
             return res.status(400).json({ message: "Invalid permission" });
 
-        const file = await File.findOne({ _id: req.params.id });
+        const file = await File.findOne({ _id: req.params.id, owner: req.user._id });
         if (!file) return res.status(404).json({ message: "File not found" });
-
-        // Check permissions: Owner OR Shared with "write"
-        const isOwner = file.owner.toString() === req.user._id.toString();
-        const sharedEntry = file.sharedWith.find(
-            (s) => s.user.toString() === req.user._id.toString()
-        );
-        const hasWrite = sharedEntry && sharedEntry.permission === "write";
-
-        if (!isOwner && !hasWrite) {
-            return res.status(403).json({ message: "Permission denied" });
-        }
 
         const target = file.sharedWith.find(x => x.user.toString() === userId);
         if (!target) return res.status(404).json({ message: "User not in share list" });
@@ -841,8 +811,8 @@ router.get("/shared", async (req, res) => {
             "sharedWith.user": req.user._id,
             isDeleted: false
         })
-            .populate("owner", OWNER_FIELDS)
-            .populate(SHARED_WITH_POPULATE);
+        .populate("owner", OWNER_FIELDS)
+        .populate(SHARED_WITH_POPULATE);
 
         res.json(files);
 
@@ -857,7 +827,7 @@ router.patch("/:id/description", async (req, res) => {
     try {
         const { description } = req.body;
 
-        if (!req.user)
+        if (!req.user) 
             return res.status(401).json({ message: "Not authenticated" });
 
         if (typeof description !== "string")
@@ -868,7 +838,7 @@ router.patch("/:id/description", async (req, res) => {
             { $set: { description: description.trim() } },
             { new: true }
         ).populate("owner", OWNER_FIELDS)
-            .populate("sharedWith.user", "name email picture");
+         .populate("sharedWith.user", "name email picture");
 
         if (!updated)
             return res.status(404).json({ message: "File not found" });
@@ -1100,5 +1070,5 @@ router.get("/search", async (req, res) => {
 
 module.exports = router;
 
-
+    
 
