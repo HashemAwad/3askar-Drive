@@ -599,7 +599,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
         }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 250, bgcolor: "#f8fafd", p: 1.8 },
+          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 250, bgcolor: "#f8fafd", p: 1.8, mt: 7.5 },
         }}
       >
         {sidebarContent}
