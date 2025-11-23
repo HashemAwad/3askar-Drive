@@ -9,6 +9,12 @@ import FileKebabMenu from "../components/FileKebabMenu.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles } from "../styles/selectionTheme";
 import { useNavigate } from "react-router-dom";
+import HoverActions from "../components/HoverActions.jsx";
+import RenameDialog from "../components/RenameDialog";
+import ShareDialog from "../components/ShareDialog.jsx";
+import DetailsPanel from "../components/DetailsPanel.jsx";
+import BatchMoveDialog from "../components/BatchMoveDialog.jsx";
+import { downloadFolderZip, updateFolder } from "../api/foldersApi.js";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -39,6 +45,13 @@ function Shared() {
     loading,
     error,
     filterBySource,
+    toggleStar,
+    renameFile,
+    downloadFile,
+    batchMove,
+    refreshFiles,
+    moveToTrash,
+    canRename,
     selectedFiles,
     selectedFolders,
     toggleFileSelection,
@@ -53,6 +66,16 @@ function Shared() {
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
   const [menuPosition, setMenuPosition] = React.useState(null);
   const [selectedFile, setSelectedFile] = React.useState(null);
+
+  // Dialog states
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [fileToRename, setFileToRename] = React.useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
+  const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
+  const [detailsFile, setDetailsFile] = React.useState(null);
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
+  const [moveTarget, setMoveTarget] = React.useState(null);
 
   const menuOpen = Boolean(menuAnchorEl) || Boolean(menuPosition);
 
@@ -118,6 +141,90 @@ function Shared() {
     return data;
   }, [sharedFiles, sortField, sortDirection]);
 
+  // Handlers
+  const openMenu = (event, file) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedFile(file);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchorEl(null);
+    setSelectedFile(null);
+  }
+
+  const openShareDialog = (file) => {
+    if (!file) return;
+    if (isFolder(file)) {
+      setFileToShare({
+        ...file,
+        isFolder: true,
+        id: file.id || file._id || file.publicId,
+        name: file.name,
+      });
+    } else {
+      setFileToShare(file);
+    }
+    setShareDialogOpen(true);
+  };
+
+  const openRenameDialog = (file) => {
+    if (!file) return;
+    setFileToRename(file);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameSubmit = async (newName) => {
+    if (!fileToRename) return;
+    const trimmed = (newName || "").trim();
+    if (!trimmed) {
+      setRenameDialogOpen(false);
+      setFileToRename(null);
+      return;
+    }
+    const id = fileToRename.id || fileToRename._id || fileToRename.publicId;
+    if (isFolder(fileToRename)) {
+      await updateFolder(id, { name: trimmed });
+    } else {
+      await renameFile(id, trimmed);
+    }
+    await refreshFiles();
+    setRenameDialogOpen(false);
+    setFileToRename(null);
+  };
+
+  const handleDownload = (item) => {
+    if (!item) return;
+    const id = item.id || item._id || item.publicId;
+    if (isFolder(item)) {
+      downloadFolderZip(id);
+    } else {
+      downloadFile(item);
+    }
+  };
+
+  const handleStartMove = (item) => {
+    setMoveTarget(item);
+    setMoveDialogOpen(true);
+  };
+
+  const handleMoveConfirm = async (destinationFolderId) => {
+    if (!moveTarget) return;
+    const isFolderItem = isFolder(moveTarget);
+    const id = moveTarget.id || moveTarget._id || moveTarget.publicId;
+    try {
+      await batchMove(
+        isFolderItem ? [] : [id],
+        isFolderItem ? [id] : [],
+        destinationFolderId
+      );
+      await refreshFiles();
+    } finally {
+      setMoveDialogOpen(false);
+      setMoveTarget(null);
+    }
+  };
+
   const selectedCount = React.useMemo(
     () => sortedFiles.reduce((acc, f) => {
       const isFolderItem = isFolder(f);
@@ -167,6 +274,11 @@ function Shared() {
     }
   };
 
+  const handleViewDetails = (file) => {
+    setDetailsFile(file);
+    setDetailsPanelOpen(true);
+  };
+
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading shared files...</Typography>;
   }
@@ -183,7 +295,9 @@ function Shared() {
     <Box
       sx={{
         flexGrow: 1,
-        padding: 10,
+        px: { xs: 2, md: 4 },
+        pt: 3,
+        pb: 6,
         marginTop: "64px",
         backgroundColor: "#ffffff",
         height: "calc(100vh - 64px)",
@@ -224,11 +338,11 @@ function Shared() {
           Name{renderSortIndicator("name")}
         </Box>
 
-        <Box sx={{ flex: 3 }} onClick={() => handleSort("owner")}>
+        <Box sx={{ flex: 3, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("owner")}>
           Shared by{renderSortIndicator("owner")}
         </Box>
 
-        <Box sx={{ flex: 2 }} onClick={() => handleSort("date")}>
+        <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("date")}>
           Date shared{renderSortIndicator("date")}
         </Box>
 
@@ -253,44 +367,73 @@ function Shared() {
                 px: 2,
                 py: 1.5,
                 borderBottom: "1px solid #f1f3f4",
+                cursor: "pointer",
                 ...getRowStyles(selected),
                 cursor: isFolderItem ? "pointer" : "default",
               }}
               onClick={() => handleItemClick(file)}
             >
+              {/* Batch checkbox */}
               <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
                 <Checkbox
                   size="small"
                   checked={selected}
-                  onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    toggleSelectionFor(file);
+                  }}
                   onClick={(e) => e.stopPropagation()}
                 />
               </Box>
-              <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
-                {isFolderItem ? (
-                  <FolderIcon sx={{ color: "#5f6368", fontSize: 20 }} />
-                ) : (
-                  <img
-                    src={file.icon || DEFAULT_FILE_ICON}
-                    width={20}
-                    height={20}
-                    alt="file icon"
-                  />
+
+              {/* HoverActions replaces ALL row content */}
+              <HoverActions
+                file={file}
+                toggleStar={toggleStar}
+                openShareDialog={openShareDialog}
+                openRenameDialog={openRenameDialog}
+                openMenu={handleMenuButtonClick}
+                downloadFile={handleDownload}
+                formatDate={formatDate}
+                showShare={true}
+                showRename={canRename(file)}
+                disableWrapper={true}
+                renderContent={(f) => (
+                  <>
+                    {/* NAME + ICON */}
+                    <Box
+                      sx={{
+                        flex: 4,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                      }}
+                    >
+                      {isFolderItem ? (
+                        <FolderIcon sx={{ color: "#5f6368", fontSize: 20 }} />
+                      ) : (
+                        <img
+                          src={f.icon || DEFAULT_FILE_ICON}
+                          width={20}
+                          height={20}
+                          alt="file icon"
+                        />
+                      )}
+                      {f.name}
+                    </Box>
+
+                    {/* OWNER */}
+                    <Box sx={{ flex: 3, color: "#5f6368" }}>
+                      {f.owner || "Unknown"}
+                    </Box>
+
+                    {/* DATE */}
+                    <Box sx={{ flex: 2, color: "#5f6368" }}>
+                      {formatDate(f.lastAccessedAt || f.uploadedAt)}
+                    </Box>
+                  </>
                 )}
-                {file.name}
-              </Box>
-
-              <Box sx={{ flex: 3, color: "#5f6368" }}>
-                {file.owner || "Unknown"}
-              </Box>
-
-              <Box sx={{ flex: 2, color: "#5f6368" }}>
-                {formatDate(file.lastAccessedAt || file.uploadedAt)}
-              </Box>
-
-              <IconButton onClick={(event) => handleMenuButtonClick(event, file)}>
-                <MoreVertIcon sx={{ color: "#5f6368" }} />
-              </IconButton>
+              />
             </Box>
           );
         })
@@ -302,6 +445,59 @@ function Shared() {
         open={menuOpen}
         onClose={handleMenuClose}
         selectedFile={selectedFile}
+        onStartShare={openShareDialog}
+        onStartRename={openRenameDialog}
+        onStartMove={handleStartMove}
+        onViewDetails={handleViewDetails}
+        onRename={selectedFile && isFolder(selectedFile) ? () => openRenameDialog(selectedFile) : undefined}
+        onFolderShare={selectedFile && isFolder(selectedFile) ? () => openShareDialog(selectedFile) : undefined}
+        onDownloadFolder={selectedFile && isFolder(selectedFile) ? () => handleDownload(selectedFile) : undefined}
+        onToggleStar={selectedFile && isFolder(selectedFile) ? () => toggleStar(selectedFile.id) : undefined}
+        onTrash={selectedFile && isFolder(selectedFile) ? () => moveToTrash(selectedFile.id) : undefined}
+        onMove={selectedFile && isFolder(selectedFile) ? () => handleStartMove(selectedFile) : undefined}
+        onFolderDetails={selectedFile && isFolder(selectedFile) ? () => handleViewDetails(selectedFile) : undefined}
+        isStarred={selectedFile?.isStarred}
+        isInTrash={selectedFile?.isDeleted}
+      />
+
+      <DetailsPanel
+        open={detailsPanelOpen}
+        file={detailsFile}
+        onClose={() => setDetailsPanelOpen(false)}
+        onManageAccess={(file) => {
+          setDetailsPanelOpen(false);
+          openShareDialog(file);
+        }}
+      />
+
+      <RenameDialog
+        open={renameDialogOpen}
+        file={fileToRename}
+        onClose={() => {
+          setRenameDialogOpen(false);
+          setFileToRename(null);
+        }}
+        onSubmit={handleRenameSubmit}
+      />
+
+      <ShareDialog
+        open={shareDialogOpen}
+        file={fileToShare}
+        onClose={() => {
+          setShareDialogOpen(false);
+          setFileToShare(null);
+        }}
+      />
+
+      <BatchMoveDialog
+        open={moveDialogOpen}
+        onClose={() => {
+          setMoveDialogOpen(false);
+          setMoveTarget(null);
+        }}
+        onMove={handleMoveConfirm}
+        selectedCount={1}
+        excludedFolderIds={moveTarget && isFolder(moveTarget) ? [moveTarget.id || moveTarget._id || moveTarget.publicId] : []}
       />
     </Box>
   );

@@ -5,6 +5,8 @@ import FolderIcon from "@mui/icons-material/Folder";
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
+import HoverActions from "../components/HoverActions.jsx";
+import ShareDialog from "../components/ShareDialog.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles } from "../styles/selectionTheme";
 
@@ -47,12 +49,16 @@ function Bin() {
     toggleFolderSelection,
     clearSelection,
     selectAll,
+    toggleStar,
+    downloadFile,
   } = useFiles();
 
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
   const [activeFile, setActiveFile] = React.useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
 
   const deletedFiles = React.useMemo(
     () => filterBySource(undefined, "trash"),
@@ -117,6 +123,7 @@ function Bin() {
   };
 
   const handleOpenMenu = (event, file) => {
+    event.stopPropagation?.();
     setMenuEl(event.currentTarget);
     setActiveFile(file);
   };
@@ -153,6 +160,16 @@ function Bin() {
     }
   };
 
+  const openShareDialog = (file) => {
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const closeShareDialog = () => {
+    setShareDialogOpen(false);
+    setFileToShare(null);
+  };
+
   const renderSortIndicator = (field) => {
     if (sortField !== field) return "";
     return sortDirection === "asc" ? " ^" : " v";
@@ -174,7 +191,9 @@ function Bin() {
     <Box
       sx={{
         flexGrow: 1,
-        padding: 10,
+        px: { xs: 2, md: 4 },
+        pt: 3,
+        pb: 6,
         marginTop: "64px",
         backgroundColor: "#ffffff",
         height: "calc(100vh - 64px)",
@@ -215,15 +234,15 @@ function Bin() {
           Name{renderSortIndicator("name")}
         </Box>
 
-        <Box sx={{ flex: 3 }} onClick={() => handleSort("owner")}>
+        <Box sx={{ flex: 3, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("owner")}>
           Owner{renderSortIndicator("owner")}
         </Box>
 
-        <Box sx={{ flex: 2 }} onClick={() => handleSort("originalLocation")}>
+        <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("originalLocation")}>
           Original location{renderSortIndicator("originalLocation")}
         </Box>
 
-        <Box sx={{ flex: 1 }} onClick={() => handleSort("dateDeleted")}>
+        <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("dateDeleted")}>
           Date deleted{renderSortIndicator("dateDeleted")}
         </Box>
 
@@ -257,45 +276,54 @@ function Bin() {
                   onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
                 />
               </Box>
-              <Box
-                sx={{
-                  flex: 4,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1.5,
-                }}
-              >
-                {isFolderItem ? (
-                  <FolderIcon sx={{ color: "#5f6368", fontSize: 20 }} />
-                ) : (
-                  <img
-                    src={file.icon || DEFAULT_FILE_ICON}
-                    width={20}
-                    height={20}
-                    alt="file icon"
-                  />
-                )}
-                {file.name}
-              </Box>
+              <Box sx={{ flex: 1, display: "flex", width: "100%" }}>
+                <HoverActions
+                  key={file.id}
+                  file={file}
+                  toggleStar={() => null} // no star in trash
+                  openShareDialog={() => null} // no share in trash
+                  openMenu={(e) => handleOpenMenu(e, file)}
+                  downloadFile={() => { }}
+                  formatDate={formatDate}
+                  showRename={false}
+                  renderContent={(file) => (
+                    <>
+                      <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+                        {isFolder(file) ? (
+                          <FolderIcon sx={{ fontSize: 24, color: "#5f6368" }} />
+                        ) : (
+                          <img
+                            src={file.icon || DEFAULT_FILE_ICON}
+                            width={20}
+                            height={20}
+                            alt="file type"
+                          />
+                        )}
+                        <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
+                      </Box>
 
-              <Box sx={{ flex: 3, color: "#5f6368" }}>
-                {file.owner || "Unknown"}
-              </Box>
+                      <Box sx={{ flex: 3, display: { xs: 'none', md: 'block' } }}>
+                        <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          {file.owner || "Unknown"}
+                        </Typography>
+                      </Box>
 
-              <Box sx={{ flex: 2, color: "#5f6368" }}>
-                {file.location || "My Drive"}
-              </Box>
+                      <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
+                        <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          {file.location || "My Drive"}
+                        </Typography>
+                      </Box>
 
-              <Box sx={{ flex: 1, color: "#5f6368" }}>
-                {formatDate(
-                  file.deletedAt || file.lastAccessedAt || file.uploadedAt
-                )}
+                      <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }}>
+                        <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          {formatDate(file.deletedAt || file.lastAccessedAt || file.uploadedAt)}
+                        </Typography>
+                      </Box>
+                    </>
+                  )}
+                />
               </Box>
-
-              <IconButton onClick={(event) => handleOpenMenu(event, file)}>
-                <MoreVertIcon sx={{ color: "#5f6368" }} />
-              </IconButton>
-            </Box>
+            </Box >
           );
         })
       )}
@@ -304,7 +332,14 @@ function Bin() {
         <MenuItem onClick={handleRestore}>Restore</MenuItem>
         <MenuItem onClick={handleDeleteForever}>Delete forever</MenuItem>
       </Menu>
-    </Box>
+
+      <ShareDialog
+        open={shareDialogOpen}
+        file={fileToShare}
+        onClose={closeShareDialog}
+      />
+
+    </Box >
   );
 }
 

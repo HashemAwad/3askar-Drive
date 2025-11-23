@@ -8,6 +8,7 @@ import {
   Button,
 } from "@mui/material";
 import { Grid, Paper } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import FolderIcon from "@mui/icons-material/Folder";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import IconButton from "@mui/material/IconButton";
@@ -19,6 +20,7 @@ import BatchToolbar from "./BatchToolbar";
 import BatchMoveDialog from "./BatchMoveDialog";
 import { Checkbox } from "@mui/material";
 import FileKebabMenu from "./FileKebabMenu";
+import HoverActions from "./HoverActions.jsx";
 import {
   getFolders,
   createFolder,
@@ -43,18 +45,19 @@ import DetailsPanel from "./DetailsPanel.jsx";
 import ShareDialog from "./ShareDialog.jsx";
 
 const formatDate = (value) => {
-  if (!value) return "—";
+  if (!value) return "";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "—";
+  if (Number.isNaN(parsed.getTime())) return "";
   return parsed.toLocaleDateString();
 };
 
 function Homepage({ initialView = "MY_DRIVE" }) {
-  const { files, sharedFiles, loading, selectedFiles, toggleFileSelection, selectAll, selectedFolders, toggleFolderSelection, clearSelection, refreshFiles, batchMove } = useFiles();
+  const { files, sharedFiles, loading, selectedFiles, toggleFileSelection, selectAll, selectedFolders, toggleFolderSelection, clearSelection, refreshFiles, batchMove, toggleStar, renameFile, downloadFile } = useFiles();
   const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
   const [detailsFile, setDetailsFile] = React.useState(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
   const [fileToShare, setFileToShare] = React.useState(null);
+  const [fileToRename, setFileToRename] = React.useState(null);
   const [viewMode, setViewMode] = React.useState("list");
 
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
@@ -84,6 +87,26 @@ function Homepage({ initialView = "MY_DRIVE" }) {
       mouseX: event.clientX + 2,
       mouseY: event.clientY - 6,
     });
+  };
+
+  const handleOpenShareDialog = (file) => { //NEW
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const handleCloseShareDialog = () => {
+    setShareDialogOpen(false);
+    setFileToShare(null);
+  };
+
+  const handleOpenRenameDialog = (file) => {
+    setFileToRename(file);
+    setRenameDialogOpen(true);
+  };
+
+  const handleCloseRenameDialog = () => {
+    setRenameDialogOpen(false);
+    setFileToRename(null);
   };
 
   const handleMenuClose = () => {
@@ -408,6 +431,28 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     navigate(`/folders/${folderId}`);
   };
 
+  const handleCreateFolder = async () => {
+    const name = window.prompt("Folder name:");
+    if (!name || !name.trim()) return;
+
+    try {
+      setFoldersLoading(true);
+      setFoldersError(null);
+
+      await createFolder({
+        name: name.trim(),
+        parentFolder: currentFolderId,
+      });
+
+      await loadFoldersForCurrentView();
+    } catch (err) {
+      console.error("Failed to create folder", err);
+      setFoldersError(err.message || "Failed to create folder");
+    } finally {
+      setFoldersLoading(false);
+    }
+  };
+
 
 
   const handleRenameFolder = () => {
@@ -593,6 +638,65 @@ function Homepage({ initialView = "MY_DRIVE" }) {
 
 
 
+  const handleUnifiedToggleStar = async (id) => {
+    const item = unifiedItems.find(i => (i.publicId || i._id || i.id) === id);
+    if (!item) return;
+    if (item.type === 'folder') {
+      try {
+        setFoldersLoading(true);
+        await updateFolder(item.publicId || item._id, { isStarred: !item.isStarred });
+        await loadFoldersForCurrentView();
+        await refreshFiles();
+      } catch (err) {
+        console.error("Failed to star folder", err);
+      } finally {
+        setFoldersLoading(false);
+      }
+    } else {
+      toggleStar(id);
+    }
+  };
+
+  const handleUnifiedShare = (item) => {
+    if (item.type === 'folder') {
+      const folderItem = {
+        ...item,
+        isFolder: true,
+        id: item.publicId || item._id,
+        name: item.name,
+      };
+      setFileToShare(folderItem);
+      setShareDialogOpen(true);
+    } else {
+      handleOpenShareDialog(item);
+    }
+  };
+
+  const handleUnifiedRename = (item) => {
+    if (item.type === 'folder') {
+      setRenameTarget(item);
+      setRenameDialogOpen(true);
+    } else {
+      handleOpenRenameDialog(item);
+    }
+  };
+
+  const handleUnifiedDownload = (item) => {
+    if (item.type === 'folder') {
+      downloadFolderZip(item.publicId || item._id);
+    } else {
+      downloadFile(item);
+    }
+  };
+
+  const handleUnifiedMenu = (event, item) => {
+    if (item.type === 'folder') {
+      handleFolderMenuOpen(event, item);
+    } else {
+      handleMenuButtonClick(event, item);
+    }
+  };
+
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading recent files...</Typography>;
   }
@@ -601,9 +705,9 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     <Box
       sx={{
         flexGrow: 1,
-        px: 6, // horizontal padding
-        pt: 3, // smaller top padding
-        pb: 6, // bottom padding
+        px: { xs: 2, md: 6 }, // responsive horizontal padding
+        pt: 3,
+        pb: 6,
         marginTop: "64px",
         backgroundColor: "#ffffff",
         height: "calc(100vh - 64px)",
@@ -745,6 +849,24 @@ function Homepage({ initialView = "MY_DRIVE" }) {
 
           </AccordionSummary>
 
+          <Button
+            // Render as a non-button element to avoid nested <button> inside AccordionSummary
+            component="span"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCreateFolder();
+            }}
+            sx={{
+              textTransform: "none",
+              fontSize: 13,
+              color: "#1a73e8",
+            }}
+          >
+            New folder
+          </Button>
+
           <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
             <Grid container spacing={2}>
               {foldersLoading && (
@@ -781,6 +903,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                     xs={12}
                     sm={6}
                     md={4}
+                    lg={3}
                     key={folder.publicId || folder._id}
                   >
                     <Paper
@@ -943,8 +1066,8 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                     />
                   </Box>
                   <Box sx={{ flex: 3 }}>Name</Box>
-                  <Box sx={{ flex: 2 }}>Owner</Box>
-                  <Box sx={{ flex: 2 }}>Date modified</Box>
+                  <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>Owner</Box>
+                  <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>Date modified</Box>
                   <Box sx={{ width: 40 }} />
                 </Box>
 
@@ -1006,13 +1129,13 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                       </Typography>
                     </Box>
 
-                    <Box sx={{ flex: 2 }}>
+                    <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
                       <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
                         {file.owner || "Unknown"}
                       </Typography>
                     </Box>
 
-                    <Box sx={{ flex: 2 }}>
+                    <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
                       <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
                         {formatDate(file.lastAccessedAt || file.uploadedAt)}
                       </Typography>
@@ -1124,81 +1247,70 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                   >
                     <Box sx={{ flex: 3 }}>Name</Box>
                     <Box sx={{ flex: 2 }}>Reason suggested</Box>
-                    <Box sx={{ flex: 2 }}>Owner</Box>
-                    <Box sx={{ flex: 2 }}>Location</Box>
+                    <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>Owner</Box>
+                    <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>Location</Box>
                     <Box sx={{ width: 40 }}></Box>
                   </Box>
 
-                  {suggestedFiles.map((file) => (
-                    <Box
-                      key={file.id}
-                      onContextMenu={(e) => handleContextMenu(e, file)}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        px: 2,
-                        py: 1.5,
-                        borderBottom: "1px solid #f1f3f4",
-                        cursor: "pointer",
-                        "&:hover": { backgroundColor: "#f8f9fa" },
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          flex: 3,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1.5,
-                        }}
-                      >
-                        <img src={file.icon} alt="" width={20} height={20} />
-                        <Typography sx={{ fontWeight: 500 }}>
-                          {file.name}
-                        </Typography>
-                      </Box>
+                  {suggestedFiles.length === 0 ? (
+                    <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                      No files match the current filters.
+                    </Typography>
+                  ) : (
+                    suggestedFiles.map((file, index) => (
+                      <HoverActions
+                        key={file.id ?? index}
+                        file={file}
+                        toggleStar={toggleStar}
+                        openShareDialog={handleOpenShareDialog}
+                        openRenameDialog={handleOpenRenameDialog}
+                        openMenu={handleMenuButtonClick}
+                        downloadFile={downloadFile}
+                        formatDate={formatDate}
+                        onContextMenu={handleContextMenu}
+                        renderContent={(currentFile) => (
+                          <>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                flex: 3,
+                                gap: 1.5,
+                              }}
+                            >
+                              <img
+                                src={currentFile.icon}
+                                alt=""
+                                width={20}
+                                height={20}
+                              />
+                              <Typography sx={{ fontWeight: 500 }}>
+                                {currentFile.name}
+                              </Typography>
+                            </Box>
 
-                      <Box sx={{ flex: 2 }}>
-                        <Typography
-                          sx={{ color: "#5f6368", fontSize: 14 }}
-                        >
-                          {file.reason}
-                        </Typography>
-                      </Box>
+                            <Box sx={{ flex: 2 }}>
+                              <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                                {currentFile.reason}
+                              </Typography>
+                            </Box>
 
-                      <Box sx={{ flex: 2 }}>
-                        <Typography
-                          sx={{ color: "#5f6368", fontSize: 14 }}
-                        >
-                          {file.owner}
-                        </Typography>
-                      </Box>
+                            <Box sx={{ flex: 2 }}>
+                              <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                                {currentFile.owner}
+                              </Typography>
+                            </Box>
 
-                      <Box sx={{ flex: 2 }}>
-                        <Typography
-                          sx={{ color: "#5f6368", fontSize: 14 }}
-                        >
-                          {file.location}
-                        </Typography>
-                      </Box>
-
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          width: 40,
-                          justifyContent: "flex-end",
-                        }}
-                      >
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuButtonClick(e, file)}
-                        >
-                          <MoreVertIcon sx={{ color: "#5f6368" }} />
-                        </IconButton>
-                      </Box>
-                    </Box>
-                  ))
-                  }
+                            <Box sx={{ flex: 2 }}>
+                              <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                                {currentFile.location}
+                              </Typography>
+                            </Box>
+                          </>
+                        )}
+                      />
+                    ))
+                  )}
                 </>
               ) : (
                 <Grid container spacing={2} sx={{ px: 2, py: 1 }}>
@@ -1372,74 +1484,65 @@ function Homepage({ initialView = "MY_DRIVE" }) {
               const selected = isFolderItem ? selectedFolders.has(id) : selectedFiles.has(id);
 
               return (
-                <Box
+                <HoverActions
                   key={isFolderItem ? `folder-${id}` : `file-${id}`}
-                  onContextMenu={(e) => isFolderItem ? handleFolderMenuOpen(e, item) : handleContextMenu(e, item)}
-                  onClick={(e) => {
-                    if (isFolderItem) handleFolderOpen(id);
-                  }}
+                  file={item}
+                  toggleStar={() => handleUnifiedToggleStar(id)}
+                  openShareDialog={() => handleUnifiedShare(item)}
+                  openRenameDialog={() => handleUnifiedRename(item)}
+                  downloadFile={() => handleUnifiedDownload(item)}
+                  openMenu={(e) => handleUnifiedMenu(e, item)}
+                  formatDate={formatDate}
                   sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    px: 2,
-                    py: 1.5,
-                    borderBottom: "1px solid #f1f3f4",
-                    cursor: "pointer",
                     backgroundColor: selected ? "#e8f0fe" : "transparent",
                     "&:hover": {
                       backgroundColor: selected ? "#e8f0fe" : "#f8f9fa",
                       "& .item-checkbox": { opacity: 1 },
                     },
                   }}
-                >
-                  <Box
-                    className="item-checkbox"
-                    onClick={(e) => e.stopPropagation()}
-                    sx={{
-                      width: 40,
-                      display: "flex",
-                      justifyContent: "center",
-                      opacity: selected ? 1 : 0,
-                      transition: "opacity 0.2s",
-                    }}
-                  >
-                    <Checkbox
-                      size="small"
-                      checked={selected}
-                      onChange={() => isFolderItem ? toggleFolderSelection(id) : toggleFileSelection(id)}
-                    />
-                  </Box>
+                  renderContent={(currentItem) => (
+                    <>
+                      <Box
+                        className="item-checkbox"
+                        onClick={(e) => e.stopPropagation()}
+                        sx={{
+                          width: 40,
+                          display: "flex",
+                          justifyContent: "center",
+                          opacity: selected ? 1 : 0,
+                          transition: "opacity 0.2s",
+                        }}
+                      >
+                        <Checkbox
+                          size="small"
+                          checked={selected}
+                          onChange={() => isFolderItem ? toggleFolderSelection(id) : toggleFileSelection(id)}
+                        />
+                      </Box>
 
-                  <Box sx={{ flex: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
-                    {isFolderItem ? (
-                      <FolderIcon sx={{ color: "#5f6368", fontSize: 24 }} />
-                    ) : (
-                      <img src={item.icon || "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png"} alt="" width={24} height={24} />
-                    )}
-                    <Typography sx={{ fontWeight: 500 }}>{item.name}</Typography>
-                  </Box>
+                      <Box sx={{ flex: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
+                        {isFolderItem ? (
+                          <FolderIcon sx={{ color: "#5f6368", fontSize: 24 }} />
+                        ) : (
+                          <img src={currentItem.icon || "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png"} alt="" width={24} height={24} />
+                        )}
+                        <Typography sx={{ fontWeight: 500 }}>{currentItem.name}</Typography>
+                      </Box>
 
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {item.owner || "Unknown"}
-                    </Typography>
-                  </Box>
+                      <Box sx={{ flex: 2 }}>
+                        <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          {currentItem.owner || "Unknown"}
+                        </Typography>
+                      </Box>
 
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {formatDate(item.updatedAt || item.lastAccessedAt || item.uploadedAt)}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => isFolderItem ? handleFolderMenuOpen(e, item) : handleMenuButtonClick(e, item)}
-                    >
-                      <MoreVertIcon sx={{ color: "#5f6368" }} />
-                    </IconButton>
-                  </Box>
-                </Box>
+                      <Box sx={{ flex: 2 }}>
+                        <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          {formatDate(currentItem.updatedAt || currentItem.lastAccessedAt || currentItem.uploadedAt)}
+                        </Typography>
+                      </Box>
+                    </>
+                  )}
+                />
               );
             })
           )}
@@ -1474,6 +1577,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
           setShareDialogOpen(true);
         }}
         onStartMove={handleMoveFile}
+        onStartRename={handleOpenRenameDialog}
         onViewDetails={(file) => {
           setDetailsFile(file);
           setDetailsPanelOpen(true);
@@ -1487,8 +1591,18 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         onClose={() => setDetailsPanelOpen(false)}
         onManageAccess={(file) => {
           setDetailsPanelOpen(false);
-          setFileToShare(file);
-          setShareDialogOpen(true);
+          handleOpenShareDialog(file);
+        }}
+      />
+
+      <RenameDialog
+        open={renameDialogOpen && !!fileToRename}
+        file={fileToRename}
+        onClose={handleCloseRenameDialog}
+        onSubmit={(newName) => {
+          if (!fileToRename) return;
+          renameFile(fileToRename.id, newName);
+          handleCloseRenameDialog();
         }}
       />
 
@@ -1501,9 +1615,6 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         }}
       />
 
-
-
-
       <FolderDetailsPanel
         open={folderDetailsOpen}
         onClose={() => setFolderDetailsOpen(false)}
@@ -1512,7 +1623,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
       />
 
       <RenameDialog
-        open={renameDialogOpen}
+        open={renameDialogOpen && !!renameTarget}
         file={renameTarget}
         onClose={() => {
           setRenameDialogOpen(false);
