@@ -1,326 +1,100 @@
-# 3askar Drive
+<div align="center">
 
-A full-stack cloud storage platform enabling secure file and folder management with collaborative sharing capabilities, built as a modern alternative to Google Drive.
+<img src="docs/assets/banner.png" alt="3askar Drive: a personal cloud drive you can run yourself" width="100%">
 
-## Key Features
+<br>
 
-- **Hierarchical File Organization**: Nested folder structures with breadcrumb navigation and recursive operations
-- **GridFS-Powered Storage**: Large file storage (up to 100MB per file) using MongoDB GridFS chunking
-- **Multi-Authentication System**: OAuth 2.0 (Google) and credential-based authentication with bcrypt password hashing
-- **Granular Access Control**: File/folder sharing with read/write permission management
-- **Intelligent Views**: My Drive, Starred, Shared, and Trash segregation with location-based filtering
-- **Batch Operations**: Multi-select capabilities for move, trash, restore, star, and download actions
-- **Real-Time Storage Tracking**: Per-user quota management (500MB default) with automatic usage calculation
-- **Advanced Search**: Full-text search across files and folders with metadata filtering
-- **Password Recovery**: Token-based email reset flow using Nodemailer
-- **Data Integrity Tools**: Orphan detection and cleanup scripts for GridFS consistency
-- **Responsive UI**: Material-UI components with adaptive grid/list view modes
+![React](https://img.shields.io/badge/React_19-1a73e8?style=for-the-badge&labelColor=202124&logo=react&logoColor=white)
+![Express](https://img.shields.io/badge/Express_5-1a73e8?style=for-the-badge&labelColor=202124&logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB_GridFS-1a73e8?style=for-the-badge&labelColor=202124&logo=mongodb&logoColor=white)
 
-## Architecture / Design Overview
+**Upload files, organise them in folders, share them with other people and bring them back from the trash. All on a drive you host yourself.**
 
-### Backend (Node.js + Express)
-```
-backend/
-├── models/          # Mongoose schemas (User, File, Folder)
-├── routes/          # RESTful API endpoints
-│   ├── auth.js      # OAuth & credential authentication
-│   ├── files. js     # File CRUD, upload/download via GridFS
-│   ├── folders.js   # Folder hierarchy, nesting, sharing
-│   ├── batch.js     # Bulk operations (trash, star, move)
-│   └── user.js      # Profile, storage stats, user lookup
-├── middleware/      # Authentication guards (ensureAuth)
-├── utils/           # Storage quotas, email sender, orphan cleanup
-└── config/          # Passport. js strategy configuration
-```
+</div>
 
-**Core Technologies:**
-- **Database**: MongoDB Atlas with GridFS for binary storage
-- **Auth**: Passport.js (Google OAuth 2.0), bcryptjs for local credentials
-- **Session Management**: cookie-session with configurable TTL
-- **File Processing**: Multer (memory storage) + GridFS streams
-- **Email**: Nodemailer with Gmail SMTP
+<br>
 
-### Frontend (React + Vite)
-```
-frontend/3askar/src/
-├── components/      # Reusable UI (MenuBar, HoverActions, dialogs)
-├── pages/           # Route-level views (MyDrive, Starred, Shared, Bin)
-├── context/         # React Context (AuthContext, FileContext)
-├── api/             # Axios HTTP clients (filesApi, foldersApi)
-├── styles/          # Theme utilities (selection, card styles)
-└── utils/           # Filtering, file type helpers
+<div align="center">
+<img src="docs/assets/folder.png" alt="A folder in 3askar Drive with a breadcrumb trail and its files" width="49%">
+<img src="docs/assets/shared.png" alt="The Shared with me page listing files shared by another user" width="49%">
+<img src="docs/assets/starred.png" alt="The Starred page" width="49%">
+<img src="docs/assets/trash.png" alt="The Trash page with deleted files and their original location" width="49%">
+<br>
+<sub>Screenshots use demo accounts and made-up files.</sub>
+</div>
+
+## ✨ What it does
+
+- **Files:** upload up to 100 MB each (stored in MongoDB GridFS), download, rename, copy, move, star, and add a description.
+- **Folders:** nested folders with breadcrumbs, and zip download for a whole folder.
+- **Sharing:** share a file or folder with someone by email, as read or write, and change or remove access later. Everything shared with you shows up under **Shared with me**.
+- **Trash:** delete, restore, or delete permanently.
+- **Search:** find files and folders, filtered by type, date and owner.
+- **Batch actions:** select several items and trash, star, move, copy, share or zip them at once.
+- **Accounts:** email and password sign-up, optional Google sign-in, and a forgot-password email. Sessions last 1 hour, or 30 days with "Remember me".
+- **Storage bar:** each user gets a 500 MB quota that updates as they upload.
+
+## 🚀 Run it
+
+You need **Node 18+** and a **MongoDB** server. Any MongoDB works, local or Atlas. The quickest local one:
+
+```bash
+docker run -d -p 27017:27017 mongo:7        # or: podman run -d -p 27017:27017 mongo:7
 ```
 
-**Core Technologies:**
-- **Framework**: React 19 with React Router v7
-- **UI Library**: Material-UI v7 (MUI)
-- **State Management**: Context API with optimized re-render strategies
-- **HTTP Client**: Axios with credential-based sessions
-- **Build Tool**: Vite 7 with HMR
+**Backend** (port 5000):
 
-### Data Flow
-1. **Upload**:  Client → Multer (memory buffer) → GridFS stream → MongoDB chunks + File metadata
-2. **Download**: Client → GridFS aggregation → stream to response
-3. **Sharing**: Frontend permission dialog → backend `sharedWith` array update → access control middleware
-4. **Folder Zip**:  Recursive GridFS fetch → Archiver stream → downloadable . zip
+```bash
+cd backend
+cp .env.example .env        # set MONGODB_URI and SESSION_SECRET
+npm install
+npm run dev
+```
 
-## How It Works
+**Frontend** (port 5173):
 
-### Authentication Flow
-- **OAuth**:  Redirect to Google consent → callback with profile → Passport session serialization
-- **Local**:  Email/password → bcrypt compare → session creation (1hr default, 30 days if "Remember Me")
+```bash
+cd frontend/3askar
+cp .env.example .env
+npm install
+npm run dev
+```
 
-### File Management
-1. **Upload**: Files chunked by GridFS (256KB default), metadata stored with `gridFsId` reference
-2. **Permissions**: Read/write checks via `owner` or `sharedWith` array validation
-3. **Soft Delete**: `isDeleted` flag + `location:  "TRASH"` for 30-day grace period
+Open **http://localhost:5173** (use `localhost`, not `127.0.0.1`), create an account, and you're in.
 
-### Storage Accounting
-- `updateStorage(userId, size, action)` increments/decrements `storageUsed` on upload/delete
-- Upload blocked if `storageUsed + fileSize > storageLimit`
+Google sign-in and the reset-password email are optional. They only work once `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and `EMAIL_USER` / `EMAIL_PASS` are set in `backend/.env`. Every variable is listed in [`backend/.env.example`](backend/.env.example).
 
-### Folder Hierarchy
-- **Path Building**: Recursive parent lookup to construct `/Parent/Child/GrandChild`
-- **Navigation**: `parentFolder` references enable tree traversal, breadcrumb generation via `getBreadcrumb` API
+## 🧱 How it's built
 
-## Project Structure
+| Layer | Tech |
+|---|---|
+| **Frontend** | React 19, Vite 7, Material UI 7, React Router 7, axios |
+| **Backend** | Node, Express 5, Mongoose 8, Passport, cookie-session, multer, archiver, nodemailer |
+| **Data** | MongoDB for users, files and folders, and GridFS for the file bytes |
 
 ```
-3askar-Drive/
+.
 ├── backend/
-│   ├── config/
-│   │   └── passport.js              # OAuth strategies
-│   ├── middleware/
-│   │   └── auth.js                  # ensureAuth guard
-│   ├── models/
-│   │   ├── User.js                  # User schema (Google/local, storage quotas)
-│   │   ├── File.js                  # File metadata (gridFsId, sharing, location)
-│   │   └── Folder.js                # Folder schema (publicId, nesting, permissions)
-│   ├── routes/
-│   │   ├── auth.js                  # /auth/login, /auth/google, /auth/logout
-│   │   ├── files.js                 # /files/upload, /files/: id, /files/:id/download
-│   │   ├── folders. js               # /folders, /folders/:id, /folders/: id/zip
-│   │   ├── batch.js                 # /batch/trash, /batch/star, /batch/delete
-│   │   └── user.js                  # /user/profile, /user/find
-│   ├── utils/
-│   │   ├── storage.js               # updateStorage utility
-│   │   ├── sendEmail.js             # Nodemailer wrapper
-│   │   ├── cleanupOrphans.js        # Orphan scan script
-│   │   └── removeOrphans.js         # Orphan deletion script
-│   ├── server.js                    # Express app entry point
-│   └── package.json
-│
-├── frontend/3askar/
-│   ├── src/
-│   │   ├── api/
-│   │   │   ├── filesApi.js          # File HTTP operations
-│   │   │   └── foldersApi.js        # Folder HTTP operations
-│   │   ├── components/
-│   │   │   ├── Homepage.jsx         # Main drive view (nested folders)
-│   │   │   ├── MenuBar.jsx          # Top navigation bar
-│   │   │   ├── ProtectedRoute.jsx   # Auth guard for routes
-│   │   │   ├── RenameDialog.jsx     # Modal for rename operations
-│   │   │   ├── ShareDialog.jsx      # Sharing permission UI
-│   │   │   ├── BatchMoveDialog.jsx  # Folder picker for move ops
-│   │   │   ├── DetailsPanel.jsx     # File details sidebar
-│   │   │   └── HoverActions.jsx     # Quick action buttons
-│   │   ├── context/
-│   │   │   ├── AuthContext.jsx      # User session state
-│   │   │   └── fileContext.jsx      # File/folder global state
-│   │   ├── pages/
-│   │   │   ├── LoginPage.jsx        # Auth entry (login/register)
-│   │   │   ├── MyDrive.jsx          # Root drive view
-│   │   │   ├── Starred.jsx          # Starred items view
-│   │   │   ├── Shared.jsx           # Shared with me view
-│   │   │   ├── Bin.jsx              # Trash view
-│   │   │   ├── SearchResults.jsx    # Search results page
-│   │   │   ├── ForgotPasswordPage.jsx
-│   │   │   └── ResetPasswordPage.jsx
-│   │   ├── styles/
-│   │   │   └── selectionTheme.js    # MUI theme overrides
-│   │   ├── utils/
-│   │   │   ├── fileHelpers.js       # Type detection, icon mapping
-│   │   │   └── filterHelpers.js     # Search/filter logic
-│   │   ├── App.jsx                  # Router configuration
-│   │   └── main.jsx                 # React root
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
-│
-└── README.md
+│   ├── server.js          # app setup, CORS, sessions, routes
+│   ├── routes/            # auth, user, files, folders, batch
+│   ├── models/            # User, File, Folder
+│   └── utils/             # storage quota, email, orphan-file scripts
+└── frontend/3askar/
+    └── src/
+        ├── pages/         # Login, Shared, Starred, Bin, Search, password reset
+        ├── components/    # Homepage, sidebar, navbar, dialogs, menus
+        ├── context/       # file state and auth
+        └── api/, services/  # axios clients for each backend route group
 ```
 
-## Getting Started
+Orphaned GridFS data can be checked and removed with `npm run orphan:check` and `npm run orphan:fix` in `backend/`.
 
-### Prerequisites
-- **Node.js**: v18+ (tested on v20)
-- **MongoDB Atlas**: Account with connection URI
-- **Gmail Account**: For email notifications (App Password required)
-- **Google OAuth Credentials**: Client ID and secret from Google Cloud Console
+<br>
 
-### Backend Setup
+<div align="center">
 
-1. **Clone and Install**
-   ```bash
-   git clone https://github.com/HashemAwad/3askar-Drive.git
-   cd 3askar-Drive/backend
-   npm install
-   ```
+**Team:** Hashem Awad · Ameera Albahrani · Ahmad Faleh
 
-2. **Environment Configuration**  
-   Create `.env` in `backend/`:
-   ```env
-   MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/3askar-drive
-   SESSION_SECRET=your-secret-key-min-32-chars
-   
-   # Google OAuth
-   GOOGLE_CLIENT_ID=your-client-id. apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=your-client-secret
-   
-   # Email (Gmail)
-   EMAIL_USER=your-email@gmail.com
-   EMAIL_PASS=your-app-password
-   
-   PORT=5000
-   ```
+<sub>A course project for CMPS 278, Web Programming &amp; Design. The interface is modelled on Google Drive and is not affiliated with Google.<br>Forked from <a href="https://github.com/3askarrr/3askar---CMPS-278-Project">3askarrr/3askar---CMPS-278-Project</a></sub>
 
-3. **Run Development Server**
-   ```bash
-   npm run dev       # Uses nodemon for hot reload
-   # OR
-   npm start         # Production mode
-   ```
-
-   Server starts on `http://localhost:5000`
-
-### Frontend Setup
-
-1. **Install Dependencies**
-   ```bash
-   cd ../frontend/3askar
-   npm install
-   ```
-
-2. **Start Development Server**
-   ```bash
-   npm run dev
-   ```
-   
-   App available at `http://localhost:5173`
-
-### Production Build
-```bash
-npm run build     # Creates optimized build in dist/
-npm run preview   # Preview production build
-```
-
-## Configuration
-
-### Backend Environment Variables
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `MONGODB_URI` | MongoDB Atlas connection string | Yes |
-| `SESSION_SECRET` | Cookie encryption key (32+ chars recommended) | Yes |
-| `GOOGLE_CLIENT_ID` | OAuth 2.0 client ID | Yes |
-| `GOOGLE_CLIENT_SECRET` | OAuth 2.0 client secret | Yes |
-| `EMAIL_USER` | Gmail address for notifications | Yes |
-| `EMAIL_PASS` | Gmail app password | Yes |
-| `PORT` | Server port | No (default: 5000) |
-
-### Storage Limits
-```javascript
-// backend/routes/files.js
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;  // 100MB per file
-
-// backend/models/User.js
-storageLimit: { default: 500 * 1024 * 1024 }  // 500MB per user
-```
-
-### Session Duration
-```javascript
-// backend/routes/auth.js (POST /login)
-if (rememberMe) {
-  req.sessionOptions.maxAge = 30 * 24 * 60 * 60 * 1000;  // 30 days
-} else {
-  req.sessionOptions.maxAge = 60 * 60 * 1000;  // 1 hour
-}
-```
-
-## Usage Guide
-
-### Basic Operations
-```bash
-# Upload file via frontend
-1. Navigate to My Drive
-2. Click "New" → "File Upload"
-3. Select file (max 100MB)
-4. File streams to GridFS, metadata saved
-
-# Create folder structure
-1. Click "New" → "New Folder"
-2. Name folder
-3. Drag-drop files into folder
-4. Folders nestable to arbitrary depth
-
-# Share with permissions
-1. Right-click file/folder → "Share"
-2. Enter email address
-3. Select "Can view" or "Can edit"
-4. User receives access (no email notification yet)
-```
-
-### API Examples
-```javascript
-// Upload file
-const formData = new FormData();
-formData.append('file', fileBlob);
-await axios.post('/files/upload', formData, {
-  headers:  { 'Content-Type': 'multipart/form-data' }
-});
-
-// Create folder
-await axios.post('/folders', {
-  name: 'Project Files',
-  parentFolder: parentId  // null for root
-});
-
-// Share folder
-await axios.patch(`/folders/${folderId}`, {
-  sharedWith: [
-    { user: userId, canEdit: true }
-  ]
-});
-
-// Batch trash
-await axios.post('/batch/trash', {
-  fileIds: ['file1', 'file2'],
-  folderIds: ['folder1'],
-  isDeleted: true
-});
-```
-
-## Roadmap / Future Improvements
-
-- [ ] **Real-Time Collaboration**: Socket.io for live file updates
-- [ ] **File Versioning**: Track revisions with rollback capability
-- [ ] **Thumbnail Generation**: Image preview using Sharp or Jimp
-- [ ] **Elastic Search Integration**: Advanced search with fuzzy matching
-- [ ] **Docker Compose**:  Containerized dev environment
-- [ ] **CI/CD Pipeline**: GitHub Actions for automated testing/deployment
-- [ ] **Mobile App**: React Native companion app
-- [ ] **File Comments**: Inline commenting system
-- [ ] **Activity Logs**: Audit trail for all operations
-- [ ] **Folder/File Templates**: Quick project scaffolding
-- [ ] **Public Link Sharing**: Anonymous access with expiration
-- [ ] **WebDAV Support**: Mount as network drive
-
-## Contributors
-
-**Project Team** (CMPS 278 - Web Programming & Design)  
-- **HashemAwad** 
-- **Ameera Albahrani**
-- **Ahmad Faleh**
-
----
-
-**Built with:** MongoDB · Express · React · Node.js · GridFS · Passport.js · Material-UI · Vite
+</div>

@@ -5,6 +5,9 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto'); //secure random token generator
 const sendEmail = require('../utils/sendEmail'); //email sending utility
 
+// Where the frontend is served (Vite dev server by default)
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+
 // Step 1 — Login with Google
 router.get(
   "/google",
@@ -16,14 +19,14 @@ router.get(
   "/google/callback",
   passport.authenticate("google", {
     failureRedirect: "/auth/failure",
-    successRedirect: "http://localhost:5173", // front-end
+    successRedirect: CLIENT_URL, // front-end
   })
 );
 
 // Step 3 — Logout TODO: check for error, make sure the session ends, and redirect back to the login page when its impelemented not the homepage
 router.get("/logout", (req, res) => {
   req.logout(() => {
-    res.redirect("http://localhost:5173");
+    res.redirect(CLIENT_URL);
   });
 });
 
@@ -142,7 +145,7 @@ router.post('/forgot-password', async (req, res) => {
 
     await user.save();
     
-    const resetLink = `http://localhost:5173/reset-password/${token}`;
+    const resetLink = `${CLIENT_URL}/reset-password/${token}`;
     console.log(`Password reset link for ${email}: ${resetLink}`); //Print to console instead of sending email
 
         const subject = "Reset your 3askar Drive password";

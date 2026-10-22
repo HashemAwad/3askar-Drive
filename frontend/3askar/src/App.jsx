@@ -4,7 +4,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import Homepage from "./components/Homepage";
-import MyDrive from "./pages/MyDrive";
 import Starred from "./pages/Starred";
 import Shared from "./pages/Shared";
 import Bin from "./pages/Bin";

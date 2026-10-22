@@ -14,7 +14,6 @@ const upload = multer({ storage });
 const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Types; // to handle ObjectId conversion
 const { Readable } = require("stream"); // to convert buffer to stream for GridFS
-const { read } = require('fs');
 const updateStorage = require('../utils/storage');
 const File = require("../models/File");
 const User = require("../models/User");

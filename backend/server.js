@@ -79,10 +79,10 @@ const requestLogger = (req, res, next) => {
 };
 
 
-// CORS: allow frontend dev server
+// CORS: allow the frontend (Vite dev server by default)
 app.use(
   cors({
-    origin: "http://localhost:5173", // Vite default
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
   })
 );
@@ -122,7 +122,7 @@ require("./config/passport")(passport);
 // MongoDB connection
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => console.log("✅ Connected to MongoDB Atlas"))
+  .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.log("❌ MongoDB connection error:", err));
 
 
@@ -136,14 +136,6 @@ app.use("/folders",ensureAuth, require("./routes/folders"));
 app.use("/batch", ensureAuth, require("./routes/batch"));
 
 app.get("/", (req, res) => res.send("Mini Drive Backend Running ✅"));
-
-app.get("/debug/session", (req, res) => {
-  res.json({
-    session: req.session,
-    user: req.user || null,
-  });
-});
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

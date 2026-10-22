@@ -111,12 +111,6 @@ async function ensurePublicId(folder) {
 
 
 
-// Simple test to see if folder routes are working
-router.get("/test", (req, res) => {
-  res.json({ message: "Folders route working" });
-});
-
-
 //Create a new folder
 
 router.post("/", ensureAuth, async (req, res) => {
